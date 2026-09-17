@@ -110,3 +110,43 @@ Step 5  文档同步 + 架构报告（before/after）              ← 收尾
 | 抽取后前端仍各自持有差异逻辑，收益不达预期 | 低 | 低 | 完成后用"新增一个设置项需要改几处"复核（目标：AppConfig + ApplyConfig 2 处） |
 
 **停止/重估**：若 Step 2 后控制台行为出现任何文案差异，暂停并评估是否值得继续；若 `AppStartup` 的契约需要 3 个以上的可选参数才能覆盖两个前端，说明边界选错，退回"只做 Session.ApplyConfig"的最小方案。
+
+---
+
+# 执行报告（2026-09-18，已完成）
+
+## Before / After
+
+**Before**：启动序列（单实例→配置→日志→保留期→崩溃恢复→Session 装配→配置映射）在两个前端各写一遍（控制台 `Program.cs` 105 行、桌面 `TrayApplicationContext` 226 行）；`config → Session` 的 8 项映射复制 3 份（控制台 / 桌面构造 / `TrayController.ApplySettingsAsync`）；`PlainLanguage.StartHint` 为死代码。
+
+**After**：
+- `OwHelper.App/AppStartup.cs`（43 行）：启动顺序唯一归属；前端只提供「输出通道、恢复确认 UI、退出钩子」；
+- `Session.ApplyConfig(AppConfig)`：配置→会话映射唯一归属（495 行 Session 内 ~10 行）；
+- 控制台 `Program.cs` 105 → **77 行**；桌面 `TrayApplicationContext` 226 → **170 行**；`SettingsForm` 仍只写配置（未受映射重构影响）；
+- 删除 `PlainLanguage.StartHint` 及其测试。
+
+**Coupling removed**：启动顺序知识的 2 份复制；配置映射的 3 份复制（实测：产品代码中 `KeepOffscreenAcrossRestart =` 只剩 `Session.ApplyConfig` 1 处，另一处是设置界面写配置，属不同职责）。
+
+**Coupling introduced**：前端 → `AppStartup`（App 层内的一个静态入口）。新耦合优于旧耦合：旧的是"两份必须人肉保持顺序一致"的隐性契约，新的是单点显式契约。
+
+**Why the new coupling is preferable**：新增一个设置项现在只需改 `AppConfig` + `Session.ApplyConfig`（2 处）；新增一个启动步骤只需改 `AppStartup`（1 处）。实测映射点 3 → 1。
+
+## Behavior verification
+
+- `dotnet build ow_helper.sln -c Release`：0 警告 0 错误；
+- `dotnet test`：**193/193**（Core 110 + App 83；`S14_ApplyConfig_MapsEveryField` 为新增映射测试，删除 1 个死代码测试）；
+- 冒烟：控制台启动存活、桌面启动存活（托盘窗口正常）；
+- 行为契约保持：控制台文案/退出码/参数解析、桌面界面与老板键语义、互斥体名、配置与运行状态文件格式、日志事件名。
+- **已知微差（有意且已记录）**：控制台在"CLI 参数非法"时不再先打印配置问题行（因为参数解析现在先于 `AppStartup`）；非法参数退出码仍为 1、文案不变。
+
+## Architecture verification
+
+- 依赖方向（`dotnet list reference` 实测）：Core ← App ← {控制台, 桌面}，无环、无反向依赖；
+- 架构测试（无 P/Invoke 泄漏 / Core 不引用 App / 源码无红线 API）：随 193 项测试通过；
+- 变更传播复核：映射点 3 → 1（证据见上）。
+
+## Remaining risks
+
+- `Session.cs`（493 行）仍是热点且多职责（F3 已评估为内聚，暂不拆）；若未来出现"第二类会话"再评估拆分；
+- `AppMessages` 静态可变（F5）在多会话场景需改为注入；
+- 桌面 UI 在 150% DPI 下的观感需用户实机确认（布局已改为流式 + DIP 尺寸）。
