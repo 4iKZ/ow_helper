@@ -9,4 +9,8 @@
     <RootNamespace>BgKeyProbe</RootNamespace>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\OwHelper.Core\OwHelper.Core.csproj" />
+  </ItemGroup>
+
 </Project>
