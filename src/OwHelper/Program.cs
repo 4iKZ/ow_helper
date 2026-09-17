@@ -13,6 +13,13 @@ class Program
     {
         Console.OutputEncoding = Encoding.UTF8;
 
+        using var single = new SingleInstance(@"Local\OwHelper.SingleInstance");
+        if (!single.Acquired)
+        {
+            Console.WriteLine("OwHelper 已在运行（单实例限制）。");
+            return 2;
+        }
+
         List<string> problems;
         AppConfig config = AppConfig.Load(AppConfig.DefaultPath, out problems);
 
@@ -45,6 +52,16 @@ class Program
 
         log.Write(new LogEntry(DateTimeOffset.Now, LogLevel.Information, "APP_START", Message: string.Join(" ", args)));
 
+        Console.WriteLine("=== OW 后台挂机助手 ===");
+        var stateStore = new RuntimeStateStore(RuntimeStateStore.DefaultPath);
+        RuntimeRecovery.TryRecover(stateStore, Console.WriteLine, prompt =>
+        {
+            Console.Write(prompt + " ");
+            ConsoleKeyInfo key = Console.ReadKey(true);
+            Console.WriteLine(key.KeyChar);
+            return key.Key == ConsoleKey.Y;
+        });
+
         var session = new Session(
             new PulseRecipe
             {
@@ -60,7 +77,8 @@ class Program
             process => new ResourceGovernor(process),
             new WindowPlacementController(),
             Console.WriteLine,
-            log)
+            log,
+            stateStore)
         {
             IntervalSec = intervalSec,
             JitterPercent = config.Input.JitterPercent,

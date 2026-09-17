@@ -31,4 +31,12 @@ public sealed class WindowPlacementController : IWindowPlacementController
         => current == null
             ? new WindowPlacementResult(true, "nothing to restore", null)
             : current.Restore();
+
+    public bool TryGetOriginalPosition(out int left, out int top)
+    {
+        if (current != null) return current.TryGetSavedPosition(out left, out top);
+        left = 0;
+        top = 0;
+        return false;
+    }
 }

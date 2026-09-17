@@ -25,4 +25,5 @@ public interface IWindowPlacementController
     bool IsOffscreen { get; }
     WindowPlacementResult MoveOffscreen(IntPtr hwnd, int pid);
     WindowPlacementResult Restore();
+    bool TryGetOriginalPosition(out int left, out int top);
 }

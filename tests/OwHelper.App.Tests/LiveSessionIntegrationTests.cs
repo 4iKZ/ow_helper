@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Threading.Tasks;
 using OwHelper;
 using OwHelper.Core;
@@ -11,14 +12,16 @@ namespace OwHelper.App.Tests;
 
 public class LiveSessionIntegrationTests
 {
-    static Session CreateSession(string processName, List<string> log)
+    static Session CreateSession(string processName, List<string> log, RuntimeStateStore? store = null)
         => new Session(
             new PulseRecipe { Keys = new[] { 0x10 } },
             new GameWindowLocator(),
             new PulseSender(),
             process => new ResourceGovernor(process),
             new WindowPlacementController(),
-            log.Add)
+            log.Add,
+            null,
+            store)
         {
             TargetProcessName = processName,
             IntervalSec = 5,
@@ -81,7 +84,8 @@ public class LiveSessionIntegrationTests
     {
         var log = new List<string>();
         using var stand = StandInProcess.Start();
-        await using var session = CreateSession(StandInProcess.Name, log);
+        var store = new RuntimeStateStore(Path.Combine(Path.GetTempPath(), "OwHelperTests", Guid.NewGuid().ToString("N"), "runtime-state.json"));
+        await using var session = CreateSession(StandInProcess.Name, log, store);
         Assert.True(await session.AttachAsync(), "attach failed" + Dump(log));
         await session.StartAsync();
 
@@ -90,11 +94,13 @@ public class LiveSessionIntegrationTests
 
         await session.ToggleOffscreenAsync();
         Assert.True(WindowProbe.GetRect(target.Handle).Left == -10000, "not offscreen" + Dump(log));
+        Assert.NotNull(store.Load());
 
         await session.ReattachAsync();
 
         Assert.True(await WaitFor(() => WindowProbe.GetRect(target.Handle).Left == original.Left, 15000), "not restored" + Dump(log));
         Assert.True(await WaitFor(() => session.State == SessionState.Running, 15000), "not running" + Dump(log));
+        Assert.Null(store.Load());
     }
 
     static async Task<bool> WaitFor(Func<bool> condition, int timeoutMs)

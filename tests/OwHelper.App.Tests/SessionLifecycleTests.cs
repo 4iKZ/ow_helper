@@ -79,6 +79,13 @@ public class SessionLifecycleTests
             IsOffscreen = false;
             return new WindowPlacementResult(true, "restored", null);
         }
+
+        public bool TryGetOriginalPosition(out int left, out int top)
+        {
+            left = 0;
+            top = 0;
+            return false;
+        }
     }
 
     sealed class Harness : IAsyncDisposable

@@ -37,6 +37,13 @@ public sealed class WindowPlacement
 
     public bool IsOffscreen => State == PlacementState.Offscreen;
 
+    public bool TryGetSavedPosition(out int left, out int top)
+    {
+        left = saved.Left;
+        top = saved.Top;
+        return State is PlacementState.Captured or PlacementState.Offscreen;
+    }
+
     public WindowPlacementResult MoveOffscreen()
     {
         if (!Native.IsWindow(hwnd))
@@ -56,17 +63,13 @@ public sealed class WindowPlacement
         saved = rect;
         State = PlacementState.Captured;
 
-        if (!Native.SetWindowPos(hwnd, IntPtr.Zero, OffscreenX, OffscreenY, 0, 0, Native.SWP_NOSIZE | Native.SWP_NOZORDER))
+        WindowPlacementResult moved = WindowMover.MoveTo(hwnd, pid, OffscreenX, OffscreenY);
+        if (!moved.Success)
         {
-            int error = Marshal.GetLastWin32Error();
-            return new WindowPlacementResult(false, "SetWindowPos failed", error);
-        }
-        if (Native.GetWindowRect(hwnd, out Native.RECT after) && after.Left != OffscreenX)
-        {
-            return new WindowPlacementResult(false, $"window did not move (left={after.Left})", null);
+            return moved;
         }
         State = PlacementState.Offscreen;
-        return new WindowPlacementResult(true, "moved offscreen", null);
+        return moved;
     }
 
     public WindowPlacementResult Restore()
@@ -86,11 +89,11 @@ public sealed class WindowPlacement
             State = PlacementState.Stale;
             return new WindowPlacementResult(false, $"hwnd belongs to pid {owner}; refused to move; snapshot discarded", null);
         }
-        if (!Native.SetWindowPos(hwnd, IntPtr.Zero, saved.Left, saved.Top, 0, 0, Native.SWP_NOSIZE | Native.SWP_NOZORDER))
+        WindowPlacementResult moved = WindowMover.MoveTo(hwnd, pid, saved.Left, saved.Top);
+        if (!moved.Success)
         {
-            int error = Marshal.GetLastWin32Error();
             State = PlacementState.RestoreFailed;
-            return new WindowPlacementResult(false, "SetWindowPos failed", error);
+            return moved;
         }
         State = PlacementState.None;
         return new WindowPlacementResult(true, "restored", null);
