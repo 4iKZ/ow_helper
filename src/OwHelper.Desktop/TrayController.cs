@@ -28,13 +28,7 @@ public sealed class TrayController
 
     public async Task<string> ApplySettingsAsync(AppConfig updated)
     {
-        session.IntervalSec = updated.Input.IntervalSeconds;
-        session.JitterPercent = updated.Input.JitterPercent;
-        session.Policy = updated.BuildPolicy();
-        session.SkipWhenForeground = updated.Input.SkipWhenTargetForeground;
-        session.AllowMoveOffscreen = updated.Window.AllowMoveOffscreen;
-        session.KeepOffscreenAcrossRestart = updated.Window.KeepOffscreenAcrossRestart;
-        session.UpdateRecipe(updated.BuildRecipe());
+        session.ApplyConfig(updated);
         updated.Save(AppConfig.DefaultPath);
         log.Write(new LogEntry(
             DateTimeOffset.Now,
@@ -144,5 +138,6 @@ public sealed class TrayController
             Message: ex.Message));
     }
 }
+
 
 

@@ -47,16 +47,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
             new WindowPlacementController(),
             AppMessages.Write,
             log,
-            stateStore)
-        {
-            IntervalSec = config.Input.IntervalSeconds,
-            JitterPercent = config.Input.JitterPercent,
-            TargetProcessName = config.Target.ProcessName,
-            Policy = config.BuildPolicy(),
-            SkipWhenForeground = config.Input.SkipWhenTargetForeground,
-            AllowMoveOffscreen = config.Window.AllowMoveOffscreen,
-            KeepOffscreenAcrossRestart = config.Window.KeepOffscreenAcrossRestart,
-        };
+            stateStore);
+        session.ApplyConfig(config);
 
         controller = new TrayController(session, log, config);
 
@@ -223,4 +215,5 @@ internal sealed class TrayApplicationContext : ApplicationContext
     static bool ConfirmRecovery(string prompt)
         => MessageBox.Show(prompt, "OW 助手", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
 }
+
 
