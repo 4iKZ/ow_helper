@@ -234,6 +234,8 @@ public sealed class MainForm : Form
         }
         else
         {
+            QuickPresets.Apply(QuickPresets.TorbjornPass, controller.Config);
+            await controller.ApplySettingsAsync(controller.Config);
             await controller.StartAsync();
         }
         RefreshStatus();
@@ -260,7 +262,7 @@ public sealed class MainForm : Form
         mainButton.FlatAppearance.MouseOverBackColor = running ? Palette.StatusFaulted : Palette.AccentHover;
         mainSubtitle.Text = running
             ? "正在自动按键；按键和间隔可在「更多设置」里调整"
-            : PlainLanguage.StartHint(status);
+            : QuickPresets.TorbjornPass.Subtitle + (status.Pid == null ? "（先打开《守望先锋》）" : "");
         offscreenButton.Text = controller.Session.IsOffscreen ? "显示游戏窗口" : "隐藏游戏窗口";
     }
 
@@ -270,10 +272,13 @@ public sealed class MainForm : Form
         {
             e.Cancel = true;
             Hide();
+            HiddenToTray?.Invoke();
             return;
         }
         base.OnFormClosing(e);
     }
+
+    public event Action? HiddenToTray;
 
     public void CloseForExit()
     {
