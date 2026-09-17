@@ -21,6 +21,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     MainForm? mainForm;
     Color lastIconColor = Color.Empty;
     bool minimizeHintShown;
+    int tick;
 
     public TrayApplicationContext()
     {
@@ -44,7 +45,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             new PulseSender(),
             process => new ResourceGovernor(process),
             new WindowPlacementController(),
-            _ => { },
+            AppMessages.Write,
             log,
             stateStore)
         {
@@ -120,6 +121,12 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     void Refresh()
     {
+        tick++;
+        if (tick % 5 == 0 && !controller.Session.IsRunning && controller.Session.Target == null)
+        {
+            _ = controller.AttachAsync(quiet: true);
+        }
+
         TrayStatus status = controller.Snapshot();
         string trayText = TrayStatusMapper.TrayText(status);
         statusItem.Text = trayText;

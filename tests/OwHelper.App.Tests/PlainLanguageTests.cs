@@ -78,6 +78,7 @@ public class PlainLanguageTests
     [InlineData(SessionNoticeKind.TargetReattached, "已自动重新连接")]
     [InlineData(SessionNoticeKind.ResourcePartialFailure, "不影响挂机")]
     [InlineData(SessionNoticeKind.PulseFailures, "权限")]
+    [InlineData(SessionNoticeKind.GameNotFound, "请先打开游戏")]
     public void Notice_IsUnderstandable(SessionNoticeKind kind, string expectedFragment)
     {
         string text = PlainLanguage.Notice(new SessionNotice(kind));

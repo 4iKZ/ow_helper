@@ -80,9 +80,9 @@ public sealed class TrayController
         return $"NVIDIA 控制面板 → Overwatch.exe 后台最大帧率 = {config.Resource.GpuBackgroundFpsTarget} FPS";
     }
 
-    public async Task AttachAsync()
+    public async Task AttachAsync(bool quiet = false)
     {
-        try { await session.AttachAsync(); }
+        try { await session.AttachAsync(quiet); }
         catch (Exception ex) { Fail("attach", ex); }
     }
 

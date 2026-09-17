@@ -15,6 +15,7 @@ public sealed class MainForm : Form
     readonly Label pulseLabel = new Label();
     readonly Label windowLabel = new Label();
     readonly Label resourceNote = new Label();
+    readonly Label latestMessage = new Label();
     readonly Button mainButton = new Button();
     readonly Label mainSubtitle = new Label();
     readonly Button bossKeyButton = new Button();
@@ -153,6 +154,7 @@ public sealed class MainForm : Form
         ConfigureValueLabel(pulseLabel, 9.5f, Palette.InkSecondary);
         ConfigureValueLabel(windowLabel, 9.5f, Palette.InkSecondary);
         ConfigureValueLabel(resourceNote, 9.5f, Palette.StatusWaiting);
+        ConfigureValueLabel(latestMessage, 9.5f, Palette.InkSecondary);
 
         layout.Controls.Add(connectionRow, 0, 0);
         layout.Controls.Add(runLabel, 0, 1);
@@ -165,13 +167,15 @@ public sealed class MainForm : Form
             AutoSize = true,
             AutoSizeMode = AutoSizeMode.GrowAndShrink,
             ColumnCount = 1,
-            RowCount = 2,
+            RowCount = 3,
             BackColor = Palette.Panel,
         };
         outer.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         outer.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        outer.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         outer.Controls.Add(layout, 0, 0);
         outer.Controls.Add(resourceNote, 0, 1);
+        outer.Controls.Add(latestMessage, 0, 2);
         card.Controls.Add(outer);
         return card;
     }
@@ -363,6 +367,7 @@ public sealed class MainForm : Form
 
         windowLabel.Text = PlainLanguage.WindowInfo(status, controller.Session.IsOffscreen);
         resourceNote.Text = PlainLanguage.ResourceNote(status);
+        latestMessage.Text = AppMessages.Latest.Length > 0 ? "最近：" + AppMessages.Latest : "";
 
         bool running = controller.Session.IsRunning;
         mainButton.Text = running ? "停止挂机" : "托比昂战令一键启动";

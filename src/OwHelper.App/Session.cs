@@ -108,20 +108,20 @@ public sealed class Session : IAsyncDisposable
         }
     }
 
-    public async Task<bool> AttachAsync()
+    public async Task<bool> AttachAsync(bool quiet = false)
     {
         await gate.WaitAsync();
-        try { return AttachLocked(); }
+        try { return AttachLocked(quiet); }
         finally { gate.Release(); }
     }
 
-    bool AttachLocked()
+    bool AttachLocked(bool quiet = false)
     {
         target = locator.Find(TargetProcessName);
         if (target == null)
         {
             State = SessionState.WaitingForTarget;
-            Log(LogLevel.Information, "TARGET_LOST", message: TargetProcessName);
+            if (!quiet) Log(LogLevel.Information, "TARGET_LOST", message: TargetProcessName);
             return false;
         }
         governor = governorFactory(target.Process);
@@ -140,7 +140,8 @@ public sealed class Session : IAsyncDisposable
             {
                 if (!AttachLocked())
                 {
-                    output("  找不到 Overwatch.exe");
+                    output("  还没有找到《守望先锋》，请先打开游戏");
+                    Notify(new SessionNotice(SessionNoticeKind.GameNotFound));
                     return;
                 }
             }
@@ -196,8 +197,13 @@ public sealed class Session : IAsyncDisposable
             GameWindow? current = target;
             if (current == null || !current.IsAlive)
             {
-                output("  尚未检测到 OW 窗口");
-                return;
+                if (!AttachLocked())
+                {
+                    output("  还没有找到《守望先锋》，请先打开游戏");
+                    Notify(new SessionNotice(SessionNoticeKind.GameNotFound));
+                    return;
+                }
+                current = target!;
             }
             if (placement.IsOffscreen)
             {
@@ -512,6 +518,7 @@ public sealed class Session : IAsyncDisposable
     static string ErrorCode(int? nativeError)
         => nativeError is int code ? $" (Win32={code})" : "";
 }
+
 
 
 

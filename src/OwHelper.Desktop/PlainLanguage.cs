@@ -56,6 +56,7 @@ public static class PlainLanguage
         SessionNoticeKind.TargetReattached => "游戏重新打开了，已自动重新连接",
         SessionNoticeKind.ResourcePartialFailure => "后台省电模式没有生效（不影响挂机）",
         SessionNoticeKind.PulseFailures => "按键发送失败了几次，可能是权限问题（试试用管理员身份打开本程序）",
+        SessionNoticeKind.GameNotFound => "还没有找到《守望先锋》，请先打开游戏（打开后会自动连接）",
         _ => "有新的运行提示",
     };
 

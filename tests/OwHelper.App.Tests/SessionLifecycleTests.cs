@@ -287,6 +287,38 @@ public class SessionLifecycleTests
         Assert.Equal(oldPid, notice.OldPid);
     }
 
+    [Fact]
+    public async Task S12_BossKeyWithoutTarget_ReportsInsteadOfDoingNothing()
+    {
+        await using var h = new Harness();
+        h.Locator.Next = null;
+
+        await h.Session.ToggleOffscreenAsync();
+
+        Assert.Equal(SessionState.WaitingForTarget, h.Session.State);
+        Assert.Equal(SessionNoticeKind.GameNotFound, h.Session.DequeueNotice()?.Kind);
+        Assert.Contains(h.Log, line => line.Contains("《守望先锋》"));
+        Assert.Equal(0, h.Placement.MoveCalls);
+    }
+
+    [Fact]
+    public async Task S13_BossKeyWithoutTarget_AttachesWhenGameAppears()
+    {
+        await using var h = new Harness();
+        h.Locator.Next = null;
+        await h.Session.ToggleOffscreenAsync();
+        Assert.Equal(0, h.Placement.MoveCalls);
+
+        using var standby = new FakeWindow(topLevel: true);
+        h.Locator.Next = GameWindow.Find(Process.GetCurrentProcess());
+        Assert.NotNull(h.Locator.Next);
+
+        await h.Session.ToggleOffscreenAsync();
+
+        Assert.Equal(1, h.Placement.MoveCalls);
+        Assert.True(h.Placement.TaskbarHidden);
+    }
+
     static async Task<bool> WaitFor(Func<bool> condition, int timeoutMs)
     {
         long deadline = Environment.TickCount64 + timeoutMs;
