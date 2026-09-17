@@ -8,7 +8,6 @@ namespace OwHelper;
 public sealed record AppStartupResult(
     AppLog Log,
     AppConfig Config,
-    RuntimeStateStore StateStore,
     Session Session,
     IReadOnlyList<string> Problems);
 
@@ -46,6 +45,6 @@ public static class AppStartup
             stateStore);
         session.ApplyConfig(config);
 
-        return new AppStartupResult(log, config, stateStore, session, problems);
+        return new AppStartupResult(log, config, session, problems);
     }
 }

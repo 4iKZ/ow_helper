@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
-using System.IO;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using OwHelper.Core;
@@ -189,6 +188,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     static bool ConfirmRecovery(string prompt)
         => MessageBox.Show(prompt, "OW 助手", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
 }
+
 
 
 

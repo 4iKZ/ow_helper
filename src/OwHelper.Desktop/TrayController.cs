@@ -1,8 +1,6 @@
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Threading.Tasks;
 using OwHelper.Core;
 
@@ -13,7 +11,6 @@ public sealed class TrayController
     readonly Session session;
     readonly AppLog log;
     readonly AppConfig config;
-    IReadOnlyList<GpuInfo>? gpus;
 
     public TrayController(Session session, AppLog log, AppConfig config)
     {
@@ -48,30 +45,17 @@ public sealed class TrayController
     public TrayStatus Snapshot()
     {
         GameWindow? target = session.Target;
-        gpus ??= GpuEnvironment.Detect();
         return new TrayStatus(
             session.State,
             target != null && target.IsAlive,
             target?.Minimized ?? false,
             target == null ? null : (int)target.Pid,
-            target?.Handle ?? nint.Zero,
             target?.Width ?? 0,
             target?.Height ?? 0,
             session.IntervalSec,
-            session.JitterPercent,
             session.PulseCount,
             session.LastPulseAt,
-            log.FilePath,
-            AppConfig.DefaultPath,
-            string.Join("; ", gpus.Select(g => g.Name)),
-            BuildGpuGuidance(gpus),
             session.LastResourceApplyPartial);
-    }
-
-    string BuildGpuGuidance(IReadOnlyList<GpuInfo> detected)
-    {
-        if (!config.GpuGuideEnabled || !GpuEnvironment.HasNvidia(detected)) return "";
-        return $"NVIDIA 控制面板 → Overwatch.exe 后台最大帧率 = {config.Resource.GpuBackgroundFpsTarget} FPS";
     }
 
     public async Task AttachAsync(bool quiet = false)
@@ -138,6 +122,7 @@ public sealed class TrayController
             Message: ex.Message));
     }
 }
+
 
 
 

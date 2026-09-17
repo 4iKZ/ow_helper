@@ -11,8 +11,6 @@ public readonly struct MessageOutcome
     public string Name { get; init; }
     public bool Ok { get; init; }
     public int Error { get; init; }
-
-    public override string ToString() => Ok ? $"{Name}=OK" : $"{Name}=FAIL(err={Error})";
 }
 
 public sealed class PulseResult
@@ -34,7 +32,7 @@ public static class PulseRunner
         var messages = new List<MessageOutcome>();
         if (recipe.SendActivateApp) messages.Add(Post(hwnd, "ACTIVATEAPP(1)", Native.WM_ACTIVATEAPP, new IntPtr(1), IntPtr.Zero));
         if (recipe.SendActivate) messages.Add(Post(hwnd, "ACTIVATE(1)", Native.WM_ACTIVATE, new IntPtr(Native.WA_ACTIVE), IntPtr.Zero));
-        if (recipe.SendFocus) messages.Add(Post(hwnd, "SETFOCUS", Native.WM_SETFOCUS, IntPtr.Zero, IntPtr.Zero));
+        if (recipe.SendFocus) messages.Add(Outcome("SETFOCUS", SendFocus(hwnd)));
         if (recipe.FocusWaitMs > 0) Thread.Sleep(recipe.FocusWaitMs);
 
         int mouseX = 0;
@@ -55,29 +53,24 @@ public static class PulseRunner
         foreach (int vk in recipe.Keys) messages.Add(Key(hwnd, vk, down: true, mouseX, mouseY));
         Thread.Sleep(recipe.HoldMs);
         for (int i = recipe.Keys.Count - 1; i >= 0; i--) messages.Add(Key(hwnd, recipe.Keys[i], down: false, mouseX, mouseY));
-        if (recipe.SendFocus) messages.Add(Post(hwnd, "KILLFOCUS", Native.WM_KILLFOCUS, IntPtr.Zero, IntPtr.Zero));
+        if (recipe.SendFocus) messages.Add(Outcome("KILLFOCUS", SendKillFocus(hwnd)));
         if (recipe.SendActivate) messages.Add(Post(hwnd, "ACTIVATE(0)", Native.WM_ACTIVATE, new IntPtr(Native.WA_INACTIVE), IntPtr.Zero));
         if (recipe.SendActivateApp) messages.Add(Post(hwnd, "ACTIVATEAPP(0)", Native.WM_ACTIVATEAPP, IntPtr.Zero, IntPtr.Zero));
         return new PulseResult { Messages = messages };
     }
 
     static MessageOutcome Post(IntPtr hwnd, string name, uint msg, IntPtr wParam, IntPtr lParam)
-    {
-        bool ok = Native.PostMessage(hwnd, msg, wParam, lParam);
-        return new MessageOutcome { Name = name, Ok = ok, Error = ok ? 0 : Marshal.GetLastWin32Error() };
-    }
+        => Outcome(name, Native.PostMessage(hwnd, msg, wParam, lParam));
+
+    static MessageOutcome Outcome(string name, bool ok)
+        => new MessageOutcome { Name = name, Ok = ok, Error = ok ? 0 : Marshal.GetLastWin32Error() };
 
     static MessageOutcome Key(IntPtr hwnd, int vk, bool down, int mouseX, int mouseY)
     {
         if (MouseInput.IsMouseVirtualKey(vk))
         {
             bool sent = MouseInput.SendButton(hwnd, vk, down, mouseX, mouseY);
-            return new MessageOutcome
-            {
-                Name = down ? $"MOUSEDOWN(0x{vk:X2})" : $"MOUSEUP(0x{vk:X2})",
-                Ok = sent,
-                Error = sent ? 0 : Marshal.GetLastWin32Error(),
-            };
+            return Outcome(down ? $"MOUSEDOWN(0x{vk:X2})" : $"MOUSEUP(0x{vk:X2})", sent);
         }
 
         uint scan = Native.MapVirtualKey((uint)vk, Native.MAPVK_VK_TO_VSC);
@@ -85,12 +78,7 @@ public static class PulseRunner
         if (IsExtendedKey(vk)) bits |= 1L << 24;
         if (!down) bits |= (1L << 30) | (1L << 31);
         bool ok = Native.PostMessage(hwnd, down ? Native.WM_KEYDOWN : Native.WM_KEYUP, new IntPtr(vk), new IntPtr(bits));
-        return new MessageOutcome
-        {
-            Name = down ? $"KEYDOWN(0x{vk:X2})" : $"KEYUP(0x{vk:X2})",
-            Ok = ok,
-            Error = ok ? 0 : Marshal.GetLastWin32Error(),
-        };
+        return Outcome(down ? $"KEYDOWN(0x{vk:X2})" : $"KEYUP(0x{vk:X2})", ok);
     }
 
     static bool IsExtendedKey(int vk) => vk switch

@@ -5,13 +5,11 @@ using System.Text.Json;
 namespace OwHelper;
 
 public sealed record RuntimeState(
-    int Version,
     int Pid,
     DateTime? ProcessStartTimeUtc,
     long Hwnd,
     int Left,
     int Top,
-    bool OffscreenApplied,
     bool TaskbarHidden,
     long OriginalExStyle);
 

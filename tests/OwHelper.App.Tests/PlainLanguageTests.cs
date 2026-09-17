@@ -14,7 +14,7 @@ public class PlainLanguageTests
         bool partial = false,
         DateTimeOffset? last = null,
         bool minimized = false)
-        => new TrayStatus(state, alive, minimized, pid, (nint)0x5A81C, 1920, 1080, 30, 0, 12, last, "log.txt", "config.json", "GPU", "", partial);
+        => new TrayStatus(state, alive, minimized, pid, 1920, 1080, 30, 12, last, partial);
 
     static void AssertNoJargon(string text)
     {

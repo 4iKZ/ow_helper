@@ -133,12 +133,6 @@ public sealed class AppConfig
     public List<string> Validate()
     {
         var problems = new List<string>();
-        ValidateInto(problems);
-        return problems;
-    }
-
-    void ValidateInto(List<string> problems)
-    {
         if (Input.IntervalSeconds < 5 || Input.IntervalSeconds > 300)
         {
             int clamped = Math.Clamp(Input.IntervalSeconds, 5, 300);
@@ -195,6 +189,7 @@ public sealed class AppConfig
             problems.Add($"logging.retainDays={Logging.RetainDays} 超出 1-365，已调整为 {clamped}");
             Logging.RetainDays = clamped;
         }
+        return problems;
     }
 }
 

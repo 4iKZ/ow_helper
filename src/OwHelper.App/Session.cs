@@ -261,13 +261,11 @@ public sealed class Session : IAsyncDisposable
         if (stateStore == null) return;
         if (!placement.TryGetOriginalPosition(out int left, out int top)) return;
         stateStore.Save(new RuntimeState(
-            Version: 1,
             Pid: (int)window.Pid,
             ProcessStartTimeUtc: window.Identity.ProcessStartTimeUtc,
             Hwnd: window.Handle.ToInt64(),
             Left: left,
             Top: top,
-            OffscreenApplied: true,
             TaskbarHidden: placement.TaskbarHidden,
             OriginalExStyle: placement.OriginalExStyle));
     }
