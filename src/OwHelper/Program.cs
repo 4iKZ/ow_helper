@@ -31,13 +31,17 @@ class Program
         int intervalSec = 30;
         if (args.Length > 1 && int.TryParse(args[1], out int iv) && iv >= 2) intervalSec = iv;
 
+        var log = new AppLog(AppLog.DefaultFilePath());
+        log.Write(new LogEntry(DateTimeOffset.Now, LogLevel.Information, "APP_START", Message: string.Join(" ", args)));
+
         var session = new Session(
             new PulseRecipe { Keys = keys },
             new GameWindowLocator(),
             new PulseSender(),
             process => new ResourceGovernor(process),
             new WindowPlacementController(),
-            Console.WriteLine)
+            Console.WriteLine,
+            log)
         {
             IntervalSec = intervalSec,
         };
@@ -46,11 +50,14 @@ class Program
         {
             e.Cancel = true;
             session.CleanupAsync().GetAwaiter().GetResult();
+            log.Write(new LogEntry(DateTimeOffset.Now, LogLevel.Information, "APP_EXIT", Message: "ctrl+c"));
             Environment.Exit(0);
         };
         AppDomain.CurrentDomain.ProcessExit += (s, e) => session.CleanupAsync().GetAwaiter().GetResult();
 
-        await new ConsoleUi(session, keysDisplay).RunAsync();
+        await new ConsoleUi(session, keysDisplay, log).RunAsync();
+        log.Write(new LogEntry(DateTimeOffset.Now, LogLevel.Information, "APP_EXIT", Message: "quit"));
         return 0;
     }
 }
+

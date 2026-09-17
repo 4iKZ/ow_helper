@@ -18,6 +18,7 @@ internal sealed class Session : IAsyncDisposable
     readonly Func<Process, IResourceGovernor> governorFactory;
     readonly IWindowPlacementController placement;
     readonly Action<string> output;
+    readonly AppLog? log;
     readonly PulseRecipe recipe;
 
     GameWindow? target;
@@ -37,7 +38,8 @@ internal sealed class Session : IAsyncDisposable
         IPulseSender pulseSender,
         Func<Process, IResourceGovernor> governorFactory,
         IWindowPlacementController placement,
-        Action<string> output)
+        Action<string> output,
+        AppLog? log = null)
     {
         this.recipe = recipe;
         this.locator = locator;
@@ -45,13 +47,17 @@ internal sealed class Session : IAsyncDisposable
         this.governorFactory = governorFactory;
         this.placement = placement;
         this.output = output;
+        this.log = log;
     }
 
     public SessionState State { get; private set; } = SessionState.Detached;
     public int IntervalSec { get; set; } = 30;
+    public int JitterPercent { get; set; }
     public int ReattachPollMs { get; set; } = 2000;
     public string TargetProcessName { get; set; } = ProcessName;
     public GameWindow? Target => target;
+    public int PulseCount => pulseCount;
+    public DateTimeOffset? LastPulseAt { get; private set; }
     public bool IsRunning => State is SessionState.Running or SessionState.Reattaching;
 
     public async Task<bool> AttachAsync()
@@ -67,10 +73,12 @@ internal sealed class Session : IAsyncDisposable
         if (target == null)
         {
             State = SessionState.WaitingForTarget;
+            Log(LogLevel.Information, "TARGET_LOST", message: TargetProcessName);
             return false;
         }
         governor = governorFactory(target.Process);
         State = SessionState.Ready;
+        Log(LogLevel.Information, "TARGET_FOUND", pid: (int)target.Pid, hwnd: target.Handle, message: target.Class);
         return true;
     }
 
@@ -93,9 +101,11 @@ internal sealed class Session : IAsyncDisposable
             failureStreak = 0;
             ResourceApplyResult applied = governor!.Apply();
             output($"  资源策略：{Describe("已应用", "CPU 优先级", applied.Priority)}；{Describe("已应用", "EcoQoS", applied.Power)}");
+            LogResourceApply(applied);
             cts = new CancellationTokenSource();
             loopTask = Task.Run(() => LoopAsync(cts.Token));
             State = SessionState.Running;
+            Log(LogLevel.Information, "SESSION_START", pid: target == null ? null : (int)target.Pid, hwnd: target?.Handle);
             output("  ▶ 挂机开始（空格停止）");
         }
         finally { gate.Release(); }
@@ -140,11 +150,13 @@ internal sealed class Session : IAsyncDisposable
             {
                 WindowPlacementResult result = placement.Restore();
                 output(result.Success ? "  OW 窗口已还原" : $"  窗口还原失败: {result.Message}{ErrorCode(result.NativeError)}");
+                LogPlacement("WINDOW_RESTORE", result, current);
             }
             else
             {
                 WindowPlacementResult result = placement.MoveOffscreen(current.Handle, (int)current.Pid);
                 output(result.Success ? "  OW 窗口已移出屏幕（按 m 还原）" : $"  移出屏幕失败: {result.Message}{ErrorCode(result.NativeError)}");
+                LogPlacement("WINDOW_MOVE_OFFSCREEN", result, current);
             }
         }
         finally { gate.Release(); }
@@ -160,6 +172,7 @@ internal sealed class Session : IAsyncDisposable
             {
                 WindowPlacementResult result = placement.Restore();
                 output(result.Success ? "  OW 窗口已还原" : $"  窗口还原失败: {result.Message}{ErrorCode(result.NativeError)}");
+                LogPlacement("WINDOW_RESTORE", result, target);
             }
         }
         finally { gate.Release(); }
@@ -176,6 +189,7 @@ internal sealed class Session : IAsyncDisposable
                 if (!await TryReattachAsync(ct))
                 {
                     output("  找不到 OW 窗口，挂机已停止");
+                    Log(LogLevel.Warning, "TARGET_LOST", message: "reattach aborted");
                     break;
                 }
                 continue;
@@ -183,21 +197,28 @@ internal sealed class Session : IAsyncDisposable
             if (current.IsForeground)
             {
                 output($"  [{DateTime.Now:HH:mm:ss}] OW 在前台，本次跳过");
+                Log(LogLevel.Information, "PULSE_SKIPPED_FOREGROUND", pid: (int)current.Pid, hwnd: current.Handle, pulseIndex: pulseCount + 1);
             }
             else
             {
+                long started = Environment.TickCount64;
                 PulseResult result = pulseSender.Execute(current.Handle, recipe);
+                long elapsed = Environment.TickCount64 - started;
                 pulseCount++;
+                LastPulseAt = DateTimeOffset.Now;
                 if (result.AllSucceeded)
                 {
                     failureStreak = 0;
+                    Log(LogLevel.Information, "PULSE_OK", pid: (int)current.Pid, hwnd: current.Handle, pulseIndex: pulseCount, elapsedMs: elapsed);
                 }
                 else
                 {
                     failureStreak++;
+                    MessageOutcome first = result.Messages.First(m => !m.Ok);
+                    Log(LogLevel.Warning, "PULSE_PARTIAL_FAILURE", pid: (int)current.Pid, hwnd: current.Handle, pulseIndex: pulseCount, nativeError: first.Error, operation: first.Name, elapsedMs: elapsed);
                     if (failureStreak == 3)
                     {
-                        MessageOutcome first = result.Messages.First(m => !m.Ok);
+                        Log(LogLevel.Error, "NATIVE_ERROR", pid: (int)current.Pid, nativeError: first.Error, operation: first.Name, message: "consecutive pulse failures");
                         output($"  警告：连续 3 次脉冲发送失败（{first.Name} err={first.Error}），可能需要以管理员身份运行");
                     }
                 }
@@ -207,8 +228,7 @@ internal sealed class Session : IAsyncDisposable
             {
                 wakeCts = new CancellationTokenSource();
                 using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, wakeCts.Token);
-                double next = IntervalSec * (0.85 + rng.NextDouble() * 0.3);
-                await Task.Delay(Math.Max(1000, (int)(next * 1000)), linked.Token);
+                await Task.Delay(NextWaitMs(), linked.Token);
             }
             catch (TaskCanceledException)
             {
@@ -216,6 +236,12 @@ internal sealed class Session : IAsyncDisposable
             }
         }
         await FinishAsync();
+    }
+
+    int NextWaitMs()
+    {
+        double next = IntervalSec * (1.0 + (rng.NextDouble() * 2 - 1) * (JitterPercent / 100.0));
+        return Math.Max(1000, (int)(next * 1000));
     }
 
     public async Task<bool> ReattachAsync()
@@ -249,17 +275,21 @@ internal sealed class Session : IAsyncDisposable
         }
         finally { gate.Release(); }
 
+        Log(LogLevel.Warning, "TARGET_LOST", pid: oldPid < 0 ? null : oldPid);
+
         if (placement.IsOffscreen)
         {
             WindowPlacementResult restoredPlacement = placement.Restore();
             output(restoredPlacement.Success
                 ? "  旧窗口位置已恢复"
                 : $"  旧窗口恢复失败: {restoredPlacement.Message}{ErrorCode(restoredPlacement.NativeError)}");
+            LogPlacement("WINDOW_RESTORE", restoredPlacement, target);
         }
         if (oldGovernor != null)
         {
             ResourceRestoreResult restored = oldGovernor.Restore();
             output($"  旧目标资源已恢复：{Describe("已恢复", "CPU 优先级", restored.Priority)}；{Describe("已恢复", "EcoQoS", restored.Power)}");
+            LogResourceRestore(restored);
         }
 
         await gate.WaitAsync();
@@ -283,6 +313,8 @@ internal sealed class Session : IAsyncDisposable
                     governor = governorFactory(found.Process);
                     ResourceApplyResult applied = governor.Apply();
                     output($"  已重新连接: PID {oldPid} → {found.Pid}；资源策略：{Describe("已应用", "CPU 优先级", applied.Priority)}；{Describe("已应用", "EcoQoS", applied.Power)}");
+                    LogResourceApply(applied);
+                    Log(LogLevel.Information, "TARGET_REATTACHED", pid: (int)found.Pid, hwnd: found.Handle, message: $"{oldPid} -> {found.Pid}");
                     State = SessionState.Running;
                 }
                 finally { gate.Release(); }
@@ -308,14 +340,17 @@ internal sealed class Session : IAsyncDisposable
         {
             ResourceRestoreResult restored = governor.Restore();
             output($"  资源恢复：{Describe("已恢复", "CPU 优先级", restored.Priority)}；{Describe("已恢复", "EcoQoS", restored.Power)}");
+            LogResourceRestore(restored);
         }
         if (placement.IsOffscreen)
         {
             WindowPlacementResult result = placement.Restore();
             output(result.Success ? "  OW 窗口已还原" : $"  窗口还原失败: {result.Message}{ErrorCode(result.NativeError)}");
+            LogPlacement("WINDOW_RESTORE", result, target);
         }
         GameWindow? current = target;
         State = current != null && current.IsAlive ? SessionState.Ready : SessionState.WaitingForTarget;
+        Log(LogLevel.Information, "SESSION_STOP", pid: current == null ? null : (int)current.Pid, pulseIndex: pulseCount);
         output("  ■ 挂机已停止");
     }
 
@@ -328,6 +363,48 @@ internal sealed class Session : IAsyncDisposable
         finally { gate.Release(); }
         gate.Dispose();
     }
+
+    void LogResourceApply(ResourceApplyResult applied)
+    {
+        bool partial = !applied.Success;
+        Log(partial ? LogLevel.Warning : LogLevel.Information,
+            partial ? "RESOURCE_APPLY_PARTIAL" : "RESOURCE_APPLY",
+            nativeError: applied.Priority.NativeError ?? applied.Power.NativeError,
+            operation: "policy",
+            message: $"{applied.Priority.Name}={(applied.Priority.Success ? "ok" : applied.Priority.Message)}; {applied.Power.Name}={(applied.Power.Success ? "ok" : applied.Power.Message)}");
+    }
+
+    void LogResourceRestore(ResourceRestoreResult restored)
+    {
+        bool partial = !restored.Success;
+        Log(partial ? LogLevel.Warning : LogLevel.Information,
+            "RESOURCE_RESTORE",
+            nativeError: restored.Priority.NativeError ?? restored.Power.NativeError,
+            operation: "policy",
+            message: $"{restored.Priority.Name}={(restored.Priority.Success ? "ok" : restored.Priority.Message)}; {restored.Power.Name}={(restored.Power.Success ? "ok" : restored.Power.Message)}");
+    }
+
+    void LogPlacement(string evt, WindowPlacementResult result, GameWindow? window)
+    {
+        Log(result.Success ? LogLevel.Information : LogLevel.Warning, evt,
+            pid: window == null ? null : (int)window.Pid,
+            hwnd: window?.Handle,
+            nativeError: result.NativeError,
+            operation: "SetWindowPos",
+            message: result.Message);
+    }
+
+    void Log(
+        LogLevel level,
+        string evt,
+        int? pid = null,
+        nint? hwnd = null,
+        int? pulseIndex = null,
+        int? nativeError = null,
+        string? operation = null,
+        long? elapsedMs = null,
+        string? message = null)
+        => log?.Write(new LogEntry(DateTimeOffset.Now, level, evt, pid, hwnd, pulseIndex, nativeError, operation, elapsedMs, message));
 
     static string Describe(string verb, string label, OperationResult result)
     {

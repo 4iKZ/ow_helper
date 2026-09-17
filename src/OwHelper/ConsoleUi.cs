@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using OwHelper.Core;
 
@@ -8,11 +9,13 @@ internal sealed class ConsoleUi
 {
     readonly Session session;
     readonly string keysDisplay;
+    readonly AppLog log;
 
-    public ConsoleUi(Session session, string keysDisplay)
+    public ConsoleUi(Session session, string keysDisplay, AppLog log)
     {
         this.session = session;
         this.keysDisplay = keysDisplay;
+        this.log = log;
     }
 
     public async Task RunAsync()
@@ -48,6 +51,16 @@ internal sealed class ConsoleUi
                 await session.ToggleOffscreenAsync();
                 continue;
             }
+            if (key.Key == ConsoleKey.S)
+            {
+                PrintStatus();
+                continue;
+            }
+            if (key.Key == ConsoleKey.L)
+            {
+                PrintRecentLogs();
+                continue;
+            }
             if (key.KeyChar == '+' || key.KeyChar == '=')
             {
                 session.IntervalSec = Math.Min(300, session.IntervalSec + 5);
@@ -70,9 +83,41 @@ internal sealed class ConsoleUi
         Console.WriteLine($"已找到 OW: PID={target.Pid}  HWND=0x{target.Handle.ToInt64():X8}  {target.Width}x{target.Height}");
     }
 
+    void PrintStatus()
+    {
+        Console.WriteLine("=== 状态 ===");
+        Console.WriteLine($"State    : {session.State}");
+        GameWindow? target = session.Target;
+        if (target == null)
+        {
+            Console.WriteLine("Target   : (未检测)");
+        }
+        else
+        {
+            TargetValidationResult validation = target.Validate();
+            Console.WriteLine($"Target   : PID {target.Pid}  HWND 0x{target.Handle.ToInt64():X8}  {target.Width}x{target.Height}");
+            Console.WriteLine($"Alive    : {(validation.Valid ? "yes" : "no - " + validation.Reason)}");
+        }
+        Console.WriteLine($"Interval : {session.IntervalSec}s (jitter {session.JitterPercent}%)");
+        string lastPulse = session.LastPulseAt is DateTimeOffset last ? $" (last {last:HH:mm:ss})" : "";
+        Console.WriteLine($"Pulses   : {session.PulseCount}{lastPulse}");
+        Console.WriteLine($"Log      : {log.FilePath}");
+    }
+
+    void PrintRecentLogs()
+    {
+        IReadOnlyList<string> lines = log.Tail(20);
+        if (lines.Count == 0)
+        {
+            Console.WriteLine("  (暂无日志)");
+            return;
+        }
+        foreach (string line in lines) Console.WriteLine("  " + line);
+    }
+
     void PrintHelp()
     {
-        Console.WriteLine($"\n按键: [{keysDisplay}]   间隔: {session.IntervalSec}s (±15% 抖动)");
-        Console.WriteLine("空格=开始/停止   m=窗口移出屏幕/还原   r=重新检测 OW   +/-=间隔增减 5s   q=退出\n");
+        Console.WriteLine($"\n按键: [{keysDisplay}]   间隔: {session.IntervalSec}s");
+        Console.WriteLine("空格=开始/停止   m=移出屏幕/还原   r=重新检测   S=状态   L=最近日志   +/-=间隔增减 5s   q=退出\n");
     }
 }
