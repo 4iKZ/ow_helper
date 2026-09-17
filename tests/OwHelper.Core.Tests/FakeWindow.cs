@@ -93,6 +93,12 @@ sealed class FakeWindow : IDisposable
         ready.Dispose();
     }
 
+    public (int Left, int Top, int Right, int Bottom) GetRect()
+    {
+        GetWindowRect(handle, out RECT r);
+        return (r.Left, r.Top, r.Right, r.Bottom);
+    }
+
     delegate IntPtr WndProcDelegate(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
@@ -114,6 +120,12 @@ sealed class FakeWindow : IDisposable
 
     [StructLayout(LayoutKind.Sequential)]
     struct POINT { public int X, Y; }
+
+    [StructLayout(LayoutKind.Sequential)]
+    struct RECT { public int Left, Top, Right, Bottom; }
+
+    [DllImport("user32.dll")]
+    static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
 
     [StructLayout(LayoutKind.Sequential)]
     struct MSG

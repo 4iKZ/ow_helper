@@ -74,16 +74,20 @@ sealed class Session
             Console.WriteLine("  尚未检测到 OW 窗口");
             return;
         }
-        placement ??= new WindowPlacement(target.Handle);
+        placement ??= new WindowPlacement(target.Handle, (int)target.Pid);
         if (placement.IsOffscreen)
         {
-            placement.Restore();
-            Console.WriteLine("  OW 窗口已还原");
+            WindowPlacementResult result = placement.Restore();
+            Console.WriteLine(result.Success
+                ? "  OW 窗口已还原"
+                : $"  窗口还原失败: {result.Message}{ErrorCode(result.NativeError)}");
         }
         else
         {
-            placement.MoveOffscreen();
-            Console.WriteLine("  OW 窗口已移出屏幕（按 m 还原）");
+            WindowPlacementResult result = placement.MoveOffscreen();
+            Console.WriteLine(result.Success
+                ? "  OW 窗口已移出屏幕（按 m 还原）"
+                : $"  移出屏幕失败: {result.Message}{ErrorCode(result.NativeError)}");
         }
     }
 
@@ -92,14 +96,15 @@ sealed class Session
         Stop();
         if (placement != null && placement.IsOffscreen)
         {
-            try
-            {
-                placement.Restore();
-                Console.WriteLine("  OW 窗口已还原");
-            }
-            catch { }
+            WindowPlacementResult result = placement.Restore();
+            Console.WriteLine(result.Success
+                ? "  OW 窗口已还原"
+                : $"  窗口还原失败: {result.Message}{ErrorCode(result.NativeError)}");
         }
     }
+
+    static string ErrorCode(int? nativeError)
+        => nativeError is int code ? $" (Win32={code})" : "";
 
     async Task LoopAsync(CancellationToken ct)
     {
