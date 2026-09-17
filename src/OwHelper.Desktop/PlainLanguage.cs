@@ -60,6 +60,6 @@ public static class PlainLanguage
         _ => "有新的运行提示",
     };
 
-    public static string StartHint(TrayStatus status)
-        => status.Pid == null ? "先打开《守望先锋》，再点下面的按钮" : "点下面的按钮即可开始，之后你正常用电脑就行";
+
 }
+

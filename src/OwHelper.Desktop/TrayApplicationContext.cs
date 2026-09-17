@@ -25,32 +25,10 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     public TrayApplicationContext()
     {
-        log = new AppLog(AppLog.DefaultFilePath());
-        log.Write(new LogEntry(DateTimeOffset.Now, LogLevel.Information, "APP_START", Message: "desktop"));
-
-        List<string> problems;
-        AppConfig config = AppConfig.Load(AppConfig.DefaultPath, out problems);
-        foreach (string problem in problems)
-        {
-            log.Write(new LogEntry(DateTimeOffset.Now, LogLevel.Warning, "CONFIG_LOAD_FAILED", Message: problem));
-        }
-        AppLog.DeleteOlderThan(Path.GetDirectoryName(log.FilePath) ?? "", config.Logging.RetainDays);
-
-        var stateStore = new RuntimeStateStore(RuntimeStateStore.DefaultPath);
-        RuntimeRecovery.TryRecover(stateStore, WriteRecoveryNote, ConfirmRecovery);
-
-        var session = new Session(
-            config.BuildRecipe(),
-            new GameWindowLocator(),
-            new PulseSender(),
-            process => new ResourceGovernor(process),
-            new WindowPlacementController(),
-            AppMessages.Write,
-            log,
-            stateStore);
-        session.ApplyConfig(config);
-
-        controller = new TrayController(session, log, config);
+        AppStartupResult startup = AppStartup.Initialize("desktop", AppMessages.Write, ConfirmRecovery);
+        log = startup.Log;
+        AppConfig config = startup.Config;
+        controller = new TrayController(startup.Session, log, config);
 
         statusItem = new ToolStripMenuItem("…") { Enabled = false };
         var openItem = new ToolStripMenuItem("打开主窗口", null, (s, e) => ShowMainWindow());
@@ -207,13 +185,10 @@ internal sealed class TrayApplicationContext : ApplicationContext
         ExitThread();
     }
 
-    void WriteRecoveryNote(string message)
-    {
-        log.Write(new LogEntry(DateTimeOffset.Now, LogLevel.Warning, "CONFIG_LOAD_FAILED", Operation: "recovery", Message: message));
-    }
 
     static bool ConfirmRecovery(string prompt)
         => MessageBox.Show(prompt, "OW 助手", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
 }
+
 
 

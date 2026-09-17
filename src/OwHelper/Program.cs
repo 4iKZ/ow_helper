@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -13,27 +12,16 @@ class Program
     {
         Console.OutputEncoding = Encoding.UTF8;
 
-        using var single = new SingleInstance(@"Local\OwHelper.SingleInstance");
+        using var single = new SingleInstance(AppStartup.SingleInstanceName);
         if (!single.Acquired)
         {
             Console.WriteLine("OwHelper 已在运行（单实例限制）。");
             return 2;
         }
 
-        List<string> problems;
-        AppConfig config = AppConfig.Load(AppConfig.DefaultPath, out problems);
-
-        var log = new AppLog(AppLog.DefaultFilePath(), config.MinLogLevel());
-        foreach (string problem in problems)
-        {
-            Console.WriteLine("配置: " + problem);
-            log.Write(new LogEntry(DateTimeOffset.Now, LogLevel.Warning, "CONFIG_LOAD_FAILED", Message: problem));
-        }
-        AppLog.DeleteOlderThan(Path.GetDirectoryName(log.FilePath) ?? "", config.Logging.RetainDays);
-
-        string keysDisplay = string.Join(",", config.Input.Keys);
         List<int>? cliKeys = null;
         int? cliInterval = null;
+        string keysDisplay = "";
         if (args.Length > 0 && !string.IsNullOrWhiteSpace(args[0]))
         {
             try
@@ -50,32 +38,25 @@ class Program
         }
         if (args.Length > 1 && int.TryParse(args[1], out int iv) && iv >= 2) cliInterval = iv;
 
-        log.Write(new LogEntry(DateTimeOffset.Now, LogLevel.Information, "APP_START", Message: string.Join(" ", args)));
-
-        Console.WriteLine("=== OW 后台挂机助手 ===");
-        var stateStore = new RuntimeStateStore(RuntimeStateStore.DefaultPath);
-        RuntimeRecovery.TryRecover(stateStore, Console.WriteLine, prompt =>
+        AppStartupResult startup = AppStartup.Initialize(string.Join(" ", args), Console.WriteLine, prompt =>
         {
             Console.Write(prompt + " ");
             ConsoleKeyInfo key = Console.ReadKey(true);
             Console.WriteLine(key.KeyChar);
             return key.Key == ConsoleKey.Y;
         });
+        foreach (string problem in startup.Problems)
+        {
+            Console.WriteLine("配置: " + problem);
+        }
+        Console.WriteLine("=== OW 后台挂机助手 ===");
 
-        var session = new Session(
-            config.BuildRecipe(),
-            new GameWindowLocator(),
-            new PulseSender(),
-            process => new ResourceGovernor(process),
-            new WindowPlacementController(),
-            Console.WriteLine,
-            log,
-            stateStore);
-        session.ApplyConfig(config);
+        if (keysDisplay.Length == 0) keysDisplay = string.Join(",", startup.Config.Input.Keys);
 
+        Session session = startup.Session;
         if (cliKeys != null)
         {
-            PulseRecipe baseRecipe = config.BuildRecipe();
+            PulseRecipe baseRecipe = startup.Config.BuildRecipe();
             session.UpdateRecipe(new PulseRecipe
             {
                 Keys = cliKeys,
@@ -92,13 +73,13 @@ class Program
         {
             e.Cancel = true;
             session.CleanupAsync().GetAwaiter().GetResult();
-            log.Write(new LogEntry(DateTimeOffset.Now, LogLevel.Information, "APP_EXIT", Message: "ctrl+c"));
+            startup.Log.Write(new LogEntry(DateTimeOffset.Now, LogLevel.Information, "APP_EXIT", Message: "ctrl+c"));
             Environment.Exit(0);
         };
         AppDomain.CurrentDomain.ProcessExit += (s, e) => session.CleanupAsync().GetAwaiter().GetResult();
 
-        await new ConsoleUi(session, keysDisplay, log, config.Resource.GpuBackgroundFpsTarget, config.GpuGuideEnabled).RunAsync();
-        log.Write(new LogEntry(DateTimeOffset.Now, LogLevel.Information, "APP_EXIT", Message: "quit"));
+        await new ConsoleUi(session, keysDisplay, startup.Log, startup.Config.Resource.GpuBackgroundFpsTarget, startup.Config.GpuGuideEnabled).RunAsync();
+        startup.Log.Write(new LogEntry(DateTimeOffset.Now, LogLevel.Information, "APP_EXIT", Message: "quit"));
         return 0;
     }
 }

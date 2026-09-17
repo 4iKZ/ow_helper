@@ -124,11 +124,7 @@ public class PlainLanguageTests
         AssertNoJargon(text);
     }
 
-    [Fact]
-    public void StartHint_GuidesWhenNoGame()
-    {
-        Assert.Contains("先打开《守望先锋》", PlainLanguage.StartHint(Status(SessionState.WaitingForTarget, pid: null)));
-        Assert.Contains("正常用电脑", PlainLanguage.StartHint(Status(SessionState.Ready)));
-    }
+
 }
+
 
