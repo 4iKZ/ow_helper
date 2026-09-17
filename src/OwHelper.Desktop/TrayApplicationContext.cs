@@ -67,7 +67,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             else await controller.StartAsync();
             Refresh();
         });
-        offscreenItem = new ToolStripMenuItem("隐藏游戏窗口", null, async (s, e) =>
+        offscreenItem = new ToolStripMenuItem("老板键", null, async (s, e) =>
         {
             await controller.ToggleOffscreenAsync();
             Refresh();
@@ -125,7 +125,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         statusItem.Text = trayText;
         notifyIcon.Text = trayText;
         toggleItem.Text = controller.Session.IsRunning ? "停止挂机" : "开始挂机";
-        offscreenItem.Text = controller.Session.IsOffscreen ? "显示游戏窗口" : "隐藏游戏窗口";
+        offscreenItem.Text = controller.Session.IsOffscreen ? "恢复游戏窗口" : "老板键";
 
         Color color = TrayStatusMapper.StatusColor(status);
         if (color != lastIconColor)
@@ -163,6 +163,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         {
             mainForm = new MainForm(controller);
             mainForm.HiddenToTray += OnHiddenToTray;
+            mainForm.BossKeyUsed += OnBossKeyUsed;
             MainForm = mainForm;
         }
         mainForm.Show();
@@ -181,6 +182,13 @@ internal sealed class TrayApplicationContext : ApplicationContext
         notifyIcon.BalloonTipTitle = "OW 助手还在后台运行";
         notifyIcon.BalloonTipText = "挂机不会中断。想停止或打开窗口，双击（或右键）右下角的托盘图标即可。";
         notifyIcon.ShowBalloonTip(6000);
+    }
+
+    void OnBossKeyUsed()
+    {
+        notifyIcon.BalloonTipTitle = "已进入老板键";
+        notifyIcon.BalloonTipText = "游戏窗口和本窗口都已隐藏，挂机继续。想恢复时，右键托盘图标 → 恢复游戏窗口。";
+        notifyIcon.ShowBalloonTip(5000);
     }
 
     void ShowSettings()
@@ -208,3 +216,4 @@ internal sealed class TrayApplicationContext : ApplicationContext
     static bool ConfirmRecovery(string prompt)
         => MessageBox.Show(prompt, "OW 助手", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
 }
+

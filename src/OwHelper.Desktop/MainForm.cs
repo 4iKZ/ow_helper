@@ -315,7 +315,8 @@ public sealed class MainForm : Form
             "1. 打开《守望先锋》，进入你想挂的房间或训练场",
             "2. 点上面的「托比昂战令一键启动」",
             "3. 正常用电脑就行，它会在后台自动按键（你玩游戏时会自动暂停）",
-            "4. 想自己玩时点一次上面的按钮停止；不想看见游戏窗口，点右侧的「隐藏游戏窗口」",
+            "4. 想自己玩时点一次上面的按钮停止；想立刻「消失」可以点「老板键」",
+            "   （游戏和本窗口都会隐藏，右键托盘图标即可恢复）",
         };
         for (int i = 0; i < steps.Length; i++)
         {
@@ -370,7 +371,7 @@ public sealed class MainForm : Form
         mainSubtitle.Text = running
             ? "正在自动按键；按键和间隔可在「更多设置」里调整"
             : QuickPresets.TorbjornPass.Subtitle + (status.Pid == null ? "（先打开《守望先锋》）" : "");
-        bossKeyButton.Text = controller.Session.IsOffscreen ? "恢复游戏窗口" : "隐藏游戏窗口";
+        bossKeyButton.Text = controller.Session.IsOffscreen ? "恢复游戏窗口" : "老板键";
     }
 
     protected override void OnLoad(EventArgs e)
@@ -397,6 +398,8 @@ public sealed class MainForm : Form
     }
 
     public event Action? HiddenToTray;
+
+    public event Action? BossKeyUsed;
 
     public void CloseForExit()
     {
