@@ -61,9 +61,18 @@ public static class WindowProbe
         return (rect.Left, rect.Top, rect.Right, rect.Bottom);
     }
 
+    public static (int Width, int Height) GetClientSize(IntPtr hwnd)
+    {
+        GetClientRect(hwnd, out RECT rect);
+        return (rect.Right - rect.Left, rect.Bottom - rect.Top);
+    }
+
     [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
     struct RECT { public int Left, Top, Right, Bottom; }
 
     [System.Runtime.InteropServices.DllImport("user32.dll")]
     static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    static extern bool GetClientRect(IntPtr hWnd, out RECT rect);
 }

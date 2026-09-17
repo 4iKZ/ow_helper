@@ -23,6 +23,12 @@ public sealed class PulseResult
 
 public static class PulseRunner
 {
+    public static bool SendFocus(IntPtr hwnd)
+        => Native.PostMessage(hwnd, Native.WM_SETFOCUS, IntPtr.Zero, IntPtr.Zero);
+
+    public static bool SendKillFocus(IntPtr hwnd)
+        => Native.PostMessage(hwnd, Native.WM_KILLFOCUS, IntPtr.Zero, IntPtr.Zero);
+
     public static PulseResult Execute(IntPtr hwnd, PulseRecipe recipe)
     {
         var messages = new List<MessageOutcome>();

@@ -35,6 +35,11 @@ public static class KeyNames
             case "printscreen": return 0x2C;
             case "numlock": return 0x90;
             case "numdivide": return 0x6F;
+            case "mouseleft": case "lmb": return MouseInput.VkLeftButton;
+            case "mouseright": case "rmb": return MouseInput.VkRightButton;
+            case "mousemiddle": case "mmb": return MouseInput.VkMiddleButton;
+            case "mouse4": return MouseInput.VkXButton1;
+            case "mouse5": return MouseInput.VkXButton2;
         }
         if (name.Length == 1)
         {

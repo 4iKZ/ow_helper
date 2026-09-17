@@ -42,6 +42,14 @@ public class KeyNamesTests
     [InlineData("printscreen", 0x2C)]
     [InlineData("numlock", 0x90)]
     [InlineData("numdivide", 0x6F)]
+    [InlineData("mouseleft", 0x01)]
+    [InlineData("lmb", 0x01)]
+    [InlineData("mouseright", 0x02)]
+    [InlineData("rmb", 0x02)]
+    [InlineData("mousemiddle", 0x04)]
+    [InlineData("mmb", 0x04)]
+    [InlineData("mouse4", 0x05)]
+    [InlineData("mouse5", 0x06)]
     public void Parse_ReturnsVirtualKey(string name, int expected)
     {
         Assert.Equal(expected, KeyNames.Parse(name));

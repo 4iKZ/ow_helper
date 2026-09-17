@@ -13,6 +13,20 @@ internal static class Native
     internal const uint WM_ACTIVATEAPP = 0x001C;
     internal const uint WM_KEYDOWN = 0x0100;
     internal const uint WM_KEYUP = 0x0101;
+    internal const uint WM_MOUSEMOVE = 0x0200;
+    internal const uint WM_LBUTTONDOWN = 0x0201;
+    internal const uint WM_LBUTTONUP = 0x0202;
+    internal const uint WM_RBUTTONDOWN = 0x0204;
+    internal const uint WM_RBUTTONUP = 0x0205;
+    internal const uint WM_MBUTTONDOWN = 0x0207;
+    internal const uint WM_MBUTTONUP = 0x0208;
+    internal const uint WM_XBUTTONDOWN = 0x020B;
+    internal const uint WM_XBUTTONUP = 0x020C;
+    internal const int MK_LBUTTON = 0x0001;
+    internal const int MK_RBUTTON = 0x0002;
+    internal const int MK_MBUTTON = 0x0010;
+    internal const int XBUTTON1 = 0x0001;
+    internal const int XBUTTON2 = 0x0002;
     internal const int WA_ACTIVE = 1;
     internal const int WA_INACTIVE = 0;
     internal const uint MAPVK_VK_TO_VSC = 0;
@@ -73,6 +87,9 @@ internal static class Native
 
     [DllImport("user32.dll")]
     internal static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
+
+    [DllImport("user32.dll")]
+    internal static extern bool GetClientRect(IntPtr hWnd, out RECT rect);
 
     [DllImport("user32.dll", SetLastError = true)]
     internal static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint flags);

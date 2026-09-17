@@ -73,6 +73,27 @@ class Program
         Console.WriteLine($"  [{DateTime.Now:HH:mm:ss}] 矩阵脉冲 A={activate} APP={activateApp} F={focus} hold={holdMs}ms");
     }
 
+    static void MousePulse(GameWindow w, int vk, string label, bool withMove)
+    {
+        var cursor = new CursorState();
+        cursor.Save();
+        if (!MouseInput.TryGetClientCenter(w.Handle, out int x, out int y))
+        {
+            Console.WriteLine("  无法获取客户区尺寸");
+            return;
+        }
+        bool focus = PulseRunner.SendFocus(w.Handle);
+        Thread.Sleep(50);
+        string move = withMove ? MouseInput.SendMove(w.Handle, x, y).ToString() : "skip";
+        bool down = MouseInput.SendButton(w.Handle, vk, down: true, x, y);
+        Thread.Sleep(200);
+        bool up = MouseInput.SendButton(w.Handle, vk, down: false, x, y);
+        bool killFocus = PulseRunner.SendKillFocus(w.Handle);
+        cursor.RestoreSaved();
+        CursorState.ReleaseClip();
+        Console.WriteLine($"  [{DateTime.Now:HH:mm:ss}] {label} 焦点={focus}/{killFocus} 移动={move} 按下={down} 抬起={up} 坐标=({x},{y})");
+    }
+
     static void StartLoop(GameWindow w)
     {
         StopLoop();
@@ -129,6 +150,10 @@ class Program
         Console.WriteLine("  b    = 只发 WM_SETFOCUS + Shift（测试能否不激活就收输入）");
         Console.WriteLine("  v    = 只发 WM_ACTIVATEAPP + Shift");
         Console.WriteLine("  u    = 全三条激活 + 30ms 超短窗口（测最短可触发窗口）");
+        Console.WriteLine("  l    = 鼠标左键（MOUSEMOVE+DOWN/UP，窗口中心）");
+        Console.WriteLine("  n    = 鼠标左键（不发 MOUSEMOVE，对比测试）");
+        Console.WriteLine("  r    = 鼠标右键（同 l 序列）");
+        Console.WriteLine("  m    = 鼠标中键（同 l 序列）");
         Console.WriteLine("  p    = 循环模式：每 2 秒 全三条激活+脉冲+取消激活（再按 p 停止）");
         Console.WriteLine("  q    = 退出");
 
@@ -147,6 +172,10 @@ class Program
             if (line.Equals("b", StringComparison.OrdinalIgnoreCase)) { MatrixPulse(target, false, false, true, 200); continue; }
             if (line.Equals("v", StringComparison.OrdinalIgnoreCase)) { MatrixPulse(target, false, true, false, 200); continue; }
             if (line.Equals("u", StringComparison.OrdinalIgnoreCase)) { MatrixPulse(target, true, true, true, 30); continue; }
+            if (line.Equals("l", StringComparison.OrdinalIgnoreCase)) { MousePulse(target, MouseInput.VkLeftButton, "鼠标左键", withMove: true); continue; }
+            if (line.Equals("n", StringComparison.OrdinalIgnoreCase)) { MousePulse(target, MouseInput.VkLeftButton, "鼠标左键(无移动)", withMove: false); continue; }
+            if (line.Equals("r", StringComparison.OrdinalIgnoreCase)) { MousePulse(target, MouseInput.VkRightButton, "鼠标右键", withMove: true); continue; }
+            if (line.Equals("m", StringComparison.OrdinalIgnoreCase)) { MousePulse(target, MouseInput.VkMiddleButton, "鼠标中键", withMove: true); continue; }
             if (line.Equals("p", StringComparison.OrdinalIgnoreCase))
             {
                 if (loopStop) { StartLoop(target); Console.WriteLine("  循环脉冲已启动（输入 p 停止）"); }
