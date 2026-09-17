@@ -11,6 +11,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\OwHelper.Core\OwHelper.Core.csproj" />
+    <ProjectReference Include="..\..\src\OwHelper\OwHelper.csproj" />
+    <ProjectReference Include="..\..\src\BgKeyProbe\BgKeyProbe.csproj" />
   </ItemGroup>
 
   <ItemGroup>

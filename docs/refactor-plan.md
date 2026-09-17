@@ -1,7 +1,7 @@
 # 架构重构计划：OwHelper 从玩具到标准应用
 
 > 依据：architecture-refactoring skill 工作流（证据 → 诊断 → 目标边界 → 备选方案 → 排序 → 迁移计划）。
-> 状态：计划阶段，尚未执行。
+> 状态：**已完成执行**（见文末执行报告）。
 
 ## 目标（Goal）
 
@@ -175,3 +175,31 @@ ow_helper/
 - Core 的公开面开始大于它隐藏的知识（抽象税超过收益）→ 回退到方案 D；
 - 假窗口测试无法稳定复现序列 → 放弃集成测试，仅保留纯单元测试与实机冒烟；
 - 迁移需要改变行为契约才能完成 → 暂停，重新划界。
+
+## 执行报告（已完成）
+
+**Before：** 两个可执行程序（OwHelper 316 行 / BgKeyProbe 365 行）各自复制了一份 Win32 互操作层（6 个 DllImport + RECT 重复），脉冲配方内联在各自的函数里且已漂移；app 的 Pulse() 不检查 PostMessage 返回值（静默失败）；无共享库、无测试、根目录无解决方案。
+
+**After：** 三层结构 —— `OwHelper.Core`（类库：Native 内部化、GameWindow、PulseRecipe/PulseRunner、ResourceGovernor、WindowPlacement、CursorState、KeyNames、Schedule）+ 两个薄前端（`OwHelper` 产品 / `BgKeyProbe` 诊断）；`ow_helper.sln` 一把构建；38 个测试。
+
+**Coupling removed：** 6 个 P/Invoke 声明与窗口枚举/脉冲逻辑的复制粘贴；配方知识不再分散在两个程序里（改动点收敛为 `PulseRecipe`）。
+
+**Coupling introduced：** 两个 app → Core 的单向项目引用。新耦合优于旧耦合：它是编译期可见、方向单一的；旧耦合是隐性的、会漂移的（已发生）。
+
+**Behavior verification：**
+- `dotnet build ow_helper.sln`：0 警告 0 错误。
+- `dotnet test`：38/38 通过（含假窗口序列集成测试：`b` 配方 = SETFOCUS→DOWN→UP→KILLFOCUS，激活配方含 ACTIVATEAPP/ACTIVATE 前后置，多键顺序与逆序、lParam 扫描码/状态位、重复位）。
+- 无 OW 启动冒烟：两个 exe 均正常启动/优雅退出。
+- 实机冒烟（需用户在有游戏时执行，见下）。
+
+**Architecture verification：**
+- `dotnet list src/OwHelper.Core reference` → 无项目引用（Core 是叶子）。
+- 两个 app 只引用 Core；无反向依赖。
+- 架构断言测试：`BgKeyProbe` 与 `OwHelper` 程序集中不存在任何 `DllImport`（38 项测试中的 2 项）。
+
+**有意行为变更（1 处）：** 连续 3 次脉冲消息发送失败时打印警告（修复静默失败），不自动停止。
+
+**Remaining risks / 待做的实机验证：**
+1. probe：`b`/`u`/`p` 触发效果与重构前一致。
+2. 产品：空格起停、30s 节奏、OW 前台跳过、`m` 移出/还原、节流打印与停止还原、Ctrl+C 清理不残留窗口/优先级。
+3. 消息序列由测试保护，但"OW 是否接受"只有实机能证明（测试靶是进程内假窗口）。
