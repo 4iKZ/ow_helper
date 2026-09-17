@@ -2,6 +2,11 @@
 
 Windows 后台输入调度器 + 进程资源控制器：让 Overwatch 2 在**失去焦点/后台**时仍能收到定向按键脉冲，同时用户可以继续正常使用电脑；提供 CPU 优先级 / EcoQoS 节流与窗口移出屏幕能力，并在停止时恢复原状。
 
+提供两个前端（**共用单实例互斥体，二选一运行**）：
+
+- **托盘版 `OwHelper.Tray.exe`**（推荐日常使用）：状态色图标 + 菜单 + 完整状态窗口 + 通知气泡
+- **控制台版 `OwHelper.exe`**：无窗口场景 / 调试 / 脚本化
+
 > 本工具只使用常规 Windows API（窗口消息投递 + 进程调度接口）。
 > **不包含**任何反作弊绕过、DLL 注入、内存读写、API Hook、内核驱动、进程隐藏或检测规避能力（有测试断言源码与程序集红线）。详见 [安全边界](#安全边界与平台条款)。
 
@@ -16,11 +21,13 @@ Windows 后台输入调度器 + 进程资源控制器：让 Overwatch 2 在**失
 ```text
 src/
 ├── OwHelper.Core/     # 类库：Win32 互操作、目标发现/校验、脉冲引擎、资源治理、窗口放置、GPU 检测
-├── OwHelper/          # 产品 CLI（Session 状态机 + 配置 + 日志 + 崩溃恢复）
+├── OwHelper.App/      # 类库：Session 状态机、配置、日志、崩溃恢复（前端共享）
+├── OwHelper/          # 控制台前端
+├── OwHelper.Tray/     # 托盘前端（WinForms，暖纸主题：暖纸底/墨黑/焦赭强调）
 └── BgKeyProbe/        # 诊断工具（消息矩阵实验、窗口清单、队列探测）
 tests/
 ├── OwHelper.Core.Tests/          # 单元 + 假窗口集成测试 + 架构红线测试
-├── OwHelper.App.Tests/           # Session 生命周期测试 + 实机替身集成测试
+├── OwHelper.App.Tests/           # Session 生命周期/配置/日志/托盘映射测试 + 实机替身集成测试
 ├── OwHelper.TestSupport/         # 测试基础设施（FakeWindow / 替身进程）
 └── OwHelper.TestSupport.StandIn/ # 替身窗口程序（实机集成测试用）
 ```
@@ -49,6 +56,29 @@ scripts\publish.ps1   # 输出 artifacts/OwHelper-win-x64（framework-dependent�
 CI：GitHub Actions（windows-latest）：restore → build → test。
 
 ## 运行
+
+### 托盘版（推荐）
+
+```powershell
+src\OwHelper.Tray\bin\Release\net8.0-windows\OwHelper.Tray.exe
+```
+
+托盘图标颜色即状态：苔绿=运行中、赭黄=等待/重连/资源部分失败、砖红=故障、暖灰=停止。
+双击图标打开状态窗口；右键菜单：
+
+```
+开始 / 停止
+移出屏幕 / 还原
+重新检测 / 重挂
+打开状态窗口
+打开日志文件夹
+打开配置文件
+退出（恢复资源与窗口）
+```
+
+通知气泡：重连成功（PID 旧→新）、资源策略部分失败、连续脉冲失败、目标失联。
+
+### 控制台版
 
 ```powershell
 src\OwHelper\bin\Release\net8.0-windows\OwHelper.exe
