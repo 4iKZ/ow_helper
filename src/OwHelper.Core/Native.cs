@@ -19,7 +19,13 @@ internal static class Native
     internal const uint SMTO_ABORTIFHUNG = 0x0002;
     internal const uint SWP_NOSIZE = 0x0001;
     internal const uint SWP_NOZORDER = 0x0004;
-    internal const int PROCESS_POWER_THROTTLING = 4;
+    internal const uint PROCESS_POWER_THROTTLING_CURRENT_VERSION = 1;
+    internal const uint PROCESS_POWER_THROTTLING_EXECUTION_SPEED = 0x1;
+
+    internal enum ProcessInformationClass
+    {
+        ProcessPowerThrottling = 4,
+    }
 
     internal delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
 
@@ -75,7 +81,7 @@ internal static class Native
     internal static extern IntPtr GetForegroundWindow();
 
     [DllImport("kernel32.dll", SetLastError = true)]
-    internal static extern bool SetProcessInformation(IntPtr hProcess, int infoClass, IntPtr info, uint infoSize);
+    internal static extern bool SetProcessInformation(IntPtr hProcess, ProcessInformationClass infoClass, ref PROCESS_POWER_THROTTLING_STATE info, uint infoSize);
 
     [StructLayout(LayoutKind.Sequential)]
     internal struct RECT { public int Left, Top, Right, Bottom; }

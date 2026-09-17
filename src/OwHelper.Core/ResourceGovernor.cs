@@ -26,12 +26,17 @@ public sealed class ResourceGovernor
     {
         try
         {
-            var state = new Native.PROCESS_POWER_THROTTLING_STATE { Version = 1, ControlMask = 1, StateMask = enable ? 1u : 0u };
-            int size = Marshal.SizeOf<Native.PROCESS_POWER_THROTTLING_STATE>();
-            IntPtr ptr = Marshal.AllocHGlobal(size);
-            Marshal.StructureToPtr(state, ptr, false);
-            Native.SetProcessInformation(process.Handle, Native.PROCESS_POWER_THROTTLING, ptr, (uint)size);
-            Marshal.FreeHGlobal(ptr);
+            var state = new Native.PROCESS_POWER_THROTTLING_STATE
+            {
+                Version = Native.PROCESS_POWER_THROTTLING_CURRENT_VERSION,
+                ControlMask = Native.PROCESS_POWER_THROTTLING_EXECUTION_SPEED,
+                StateMask = enable ? Native.PROCESS_POWER_THROTTLING_EXECUTION_SPEED : 0u,
+            };
+            Native.SetProcessInformation(
+                process.Handle,
+                Native.ProcessInformationClass.ProcessPowerThrottling,
+                ref state,
+                (uint)Marshal.SizeOf<Native.PROCESS_POWER_THROTTLING_STATE>());
         }
         catch { }
     }
