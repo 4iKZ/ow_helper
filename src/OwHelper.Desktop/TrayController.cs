@@ -58,6 +58,7 @@ public sealed class TrayController
         return new TrayStatus(
             session.State,
             target != null && target.IsAlive,
+            target?.Minimized ?? false,
             target == null ? null : (int)target.Pid,
             target?.Handle ?? nint.Zero,
             target?.Width ?? 0,
@@ -143,4 +144,5 @@ public sealed class TrayController
             Message: ex.Message));
     }
 }
+
 

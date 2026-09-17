@@ -39,8 +39,13 @@ public static class PlainLanguage
         return $"下次按键：约 {remaining} 秒后";
     }
 
-    public static string WindowInfo(TrayStatus status)
-        => status.Pid is int && status.Width > 0 ? $"窗口 {status.Width}×{status.Height}" : "";
+    public static string WindowInfo(TrayStatus status, bool offscreen)
+    {
+        if (offscreen) return "游戏窗口：已隐藏（点「恢复游戏窗口」可显示）";
+        if (status.Minimized) return "游戏窗口：已最小化（不影响挂机）";
+        if (status.Pid is int && status.Width > 0) return $"游戏窗口：{status.Width}×{status.Height}";
+        return "";
+    }
 
     public static string ResourceNote(TrayStatus status)
         => status.ResourcePartialFailure ? "后台省电模式没有生效（不影响挂机）" : "";

@@ -6,6 +6,7 @@ namespace OwHelper.Desktop;
 public sealed record TrayStatus(
     SessionState State,
     bool TargetAlive,
+    bool Minimized,
     int? Pid,
     nint Hwnd,
     int Width,
@@ -19,3 +20,4 @@ public sealed record TrayStatus(
     string GpuSummary,
     string GpuGuidance,
     bool ResourcePartialFailure);
+

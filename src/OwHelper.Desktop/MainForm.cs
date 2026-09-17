@@ -10,14 +10,15 @@ public sealed class MainForm : Form
     readonly TrayController controller;
     readonly Timer timer;
     readonly Label connectionDot = new Label();
-    readonly Label connectionLabel = ValueLabel();
-    readonly Label runLabel = ValueLabel();
-    readonly Label pulseLabel = ValueLabel();
-    readonly Label windowLabel = ValueLabel();
-    readonly Label resourceNote = ValueLabel();
+    readonly Label connectionLabel = new Label();
+    readonly Label runLabel = new Label();
+    readonly Label pulseLabel = new Label();
+    readonly Label windowLabel = new Label();
+    readonly Label resourceNote = new Label();
     readonly Button mainButton = new Button();
-    readonly Label mainSubtitle = ValueLabel();
-    readonly Button offscreenButton = ActionButton();
+    readonly Label mainSubtitle = new Label();
+    readonly Button bossKeyButton = new Button();
+    readonly Button settingsButton = new Button();
     bool exiting;
 
     public MainForm(TrayController controller)
@@ -27,8 +28,9 @@ public sealed class MainForm : Form
         Text = "OW 助手";
         BackColor = Palette.Paper;
         ForeColor = Palette.Ink;
-        Font = new Font("Segoe UI", 9f);
-        ClientSize = new Size(720, 620);
+        AutoScaleMode = AutoScaleMode.None;
+        Font = new Font("Segoe UI", 9.5f);
+        ClientSize = new Size(900, 800);
         FormBorderStyle = FormBorderStyle.FixedSingle;
         MaximizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
@@ -37,15 +39,17 @@ public sealed class MainForm : Form
         var root = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            Padding = new Padding(24, 18, 24, 16),
+            Padding = new Padding(28, 20, 28, 20),
             ColumnCount = 1,
             RowCount = 4,
+            BackColor = Palette.Paper,
+            AutoScroll = true,
         };
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 62f));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 150f));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 168f));
+        root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
-
         root.Controls.Add(BuildHeader(), 0, 0);
         root.Controls.Add(BuildStatusCard(), 0, 1);
         root.Controls.Add(BuildActions(), 0, 2);
@@ -62,24 +66,38 @@ public sealed class MainForm : Form
 
     Control BuildHeader()
     {
-        var panel = new Panel { Dock = DockStyle.Fill, BackColor = Palette.Paper };
-        panel.Controls.Add(new Label
+        var layout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            ColumnCount = 1,
+            RowCount = 2,
+            BackColor = Palette.Paper,
+            Margin = new Padding(0, 0, 0, 14),
+        };
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+        layout.Controls.Add(new Label
         {
             Text = "OW 助手",
-            Font = new Font("Segoe UI Semibold", 17f),
+            Font = new Font("Segoe UI Semibold", 18f),
             ForeColor = Palette.Ink,
             AutoSize = true,
-            Location = new Point(0, 6),
-        });
-        panel.Controls.Add(new Label
+            Margin = new Padding(0, 0, 0, 6),
+        }, 0, 0);
+
+        layout.Controls.Add(new Label
         {
             Text = "让《守望先锋》在后台自动按键，你可以放心用电脑做别的事",
-            Font = new Font("Segoe UI", 9.5f),
             ForeColor = Palette.InkSecondary,
             AutoSize = true,
-            Location = new Point(2, 38),
-        });
-        return panel;
+            MaximumSize = new Size(830, 0),
+            Margin = new Padding(2, 0, 0, 0),
+        }, 0, 1);
+
+        return layout;
     }
 
     Control BuildStatusCard()
@@ -88,8 +106,10 @@ public sealed class MainForm : Form
         {
             Dock = DockStyle.Fill,
             BackColor = Palette.Panel,
-            Padding = new Padding(18, 14, 18, 12),
-            Margin = new Padding(0, 0, 0, 12),
+            Padding = new Padding(20, 16, 20, 16),
+            Margin = new Padding(0, 0, 0, 16),
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
         };
         card.Paint += (s, e) =>
         {
@@ -97,51 +117,98 @@ public sealed class MainForm : Form
             e.Graphics.DrawRectangle(pen, 0, 0, card.Width - 1, card.Height - 1);
         };
 
+        var layout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            ColumnCount = 1,
+            RowCount = 4,
+            BackColor = Palette.Panel,
+        };
+        for (int i = 0; i < 4; i++) layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+        var connectionRow = new FlowLayoutPanel
+        {
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = false,
+            Margin = new Padding(0, 0, 0, 8),
+            BackColor = Palette.Panel,
+        };
         connectionDot.Text = "●";
-        connectionDot.Font = new Font("Segoe UI", 12f);
+        connectionDot.Font = new Font("Segoe UI", 13f);
         connectionDot.ForeColor = Palette.StatusStopped;
         connectionDot.AutoSize = true;
-        connectionDot.Location = new Point(16, 16);
-
-        connectionLabel.Font = new Font("Segoe UI Semibold", 12f);
-        connectionLabel.AutoSize = true;
-        connectionLabel.Location = new Point(40, 18);
+        connectionDot.Margin = new Padding(0, 2, 8, 0);
+        connectionLabel.Font = new Font("Segoe UI Semibold", 13f);
         connectionLabel.ForeColor = Palette.Ink;
+        connectionLabel.AutoSize = true;
+        connectionLabel.Margin = new Padding(0, 0, 0, 0);
+        connectionRow.Controls.Add(connectionDot);
+        connectionRow.Controls.Add(connectionLabel);
 
-        runLabel.AutoSize = true;
-        runLabel.Location = new Point(18, 52);
-        runLabel.Font = new Font("Segoe UI", 10.5f);
-        runLabel.ForeColor = Palette.Ink;
+        ConfigureValueLabel(runLabel, 11f, Palette.Ink);
+        ConfigureValueLabel(pulseLabel, 9.5f, Palette.InkSecondary);
+        ConfigureValueLabel(windowLabel, 9.5f, Palette.InkSecondary);
+        ConfigureValueLabel(resourceNote, 9.5f, Palette.StatusWaiting);
 
-        pulseLabel.AutoSize = true;
-        pulseLabel.Location = new Point(18, 78);
-        pulseLabel.ForeColor = Palette.InkSecondary;
+        layout.Controls.Add(connectionRow, 0, 0);
+        layout.Controls.Add(runLabel, 0, 1);
+        layout.Controls.Add(pulseLabel, 0, 2);
+        layout.Controls.Add(windowLabel, 0, 3);
 
-        windowLabel.AutoSize = true;
-        windowLabel.Location = new Point(18, 100);
-        windowLabel.ForeColor = Palette.InkSecondary;
-
-        resourceNote.AutoSize = true;
-        resourceNote.Location = new Point(18, 122);
-        resourceNote.ForeColor = Palette.StatusWaiting;
-
-        card.Controls.Add(connectionDot);
-        card.Controls.Add(connectionLabel);
-        card.Controls.Add(runLabel);
-        card.Controls.Add(pulseLabel);
-        card.Controls.Add(windowLabel);
-        card.Controls.Add(resourceNote);
+        var outer = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            ColumnCount = 1,
+            RowCount = 2,
+            BackColor = Palette.Panel,
+        };
+        outer.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        outer.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        outer.Controls.Add(layout, 0, 0);
+        outer.Controls.Add(resourceNote, 0, 1);
+        card.Controls.Add(outer);
         return card;
     }
 
     Control BuildActions()
     {
-        var panel = new Panel { Dock = DockStyle.Fill, BackColor = Palette.Paper };
+        var layout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            ColumnCount = 2,
+            RowCount = 1,
+            BackColor = Palette.Paper,
+            Margin = new Padding(0, 0, 0, 16),
+        };
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 600f));
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+
+        var left = new TableLayoutPanel
+        {
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            ColumnCount = 1,
+            RowCount = 3,
+            BackColor = Palette.Paper,
+            Margin = new Padding(0),
+        };
+        for (int i = 0; i < 3; i++) left.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
         mainButton.Text = "托比昂战令一键启动";
-        mainButton.Font = new Font("Segoe UI Semibold", 15f);
-        mainButton.Size = new Size(420, 62);
-        mainButton.Location = new Point(2, 4);
+        mainButton.Font = new Font("Segoe UI Semibold", 16f);
+        mainButton.AutoSize = true;
+        mainButton.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+        mainButton.Padding = new Padding(28, 0, 28, 0);
+        mainButton.MinimumSize = new Size(480, 68);
+        mainButton.Margin = new Padding(0, 0, 0, 10);
         mainButton.FlatStyle = FlatStyle.Flat;
         mainButton.BackColor = Palette.Accent;
         mainButton.ForeColor = Palette.Panel;
@@ -150,23 +217,42 @@ public sealed class MainForm : Form
         mainButton.Click += async (s, e) => await ToggleRunAsync();
 
         mainSubtitle.AutoSize = true;
-        mainSubtitle.Location = new Point(4, 72);
         mainSubtitle.ForeColor = Palette.InkSecondary;
-        mainSubtitle.Text = "每 30 秒自动按一次 Shift"; 
+        mainSubtitle.MaximumSize = new Size(590, 0);
+        mainSubtitle.Margin = new Padding(2, 0, 0, 0);
 
-        offscreenButton.Text = "隐藏游戏窗口";
-        offscreenButton.Location = new Point(440, 18);
-        offscreenButton.Size = new Size(160, 38);
-        offscreenButton.Click += async (s, e) =>
+        left.Controls.Add(mainButton, 0, 0);
+        left.Controls.Add(mainSubtitle, 0, 1);
+        left.Controls.Add(new Label
+        {
+            Text = "想自己玩时，再点一次同一个按钮即可停止",
+            ForeColor = Palette.InkSecondary,
+            AutoSize = true,
+            MaximumSize = new Size(590, 0),
+            Margin = new Padding(2, 6, 0, 0),
+        }, 0, 2);
+
+        var right = new TableLayoutPanel
+        {
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            ColumnCount = 1,
+            RowCount = 3,
+            BackColor = Palette.Paper,
+            Margin = new Padding(16, 0, 0, 0),
+        };
+        for (int i = 0; i < 3; i++) right.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+        bossKeyButton.Text = "隐藏游戏窗口";
+        StyleSideButton(bossKeyButton);
+        bossKeyButton.Click += async (s, e) =>
         {
             await controller.ToggleOffscreenAsync();
             RefreshStatus();
         };
 
-        var settingsButton = ActionButton();
         settingsButton.Text = "更多设置…";
-        settingsButton.Location = new Point(440, 62);
-        settingsButton.Size = new Size(160, 30);
+        StyleSideButton(settingsButton);
         settingsButton.Click += (s, e) =>
         {
             using var form = new SettingsForm(controller);
@@ -174,11 +260,12 @@ public sealed class MainForm : Form
             RefreshStatus();
         };
 
-        panel.Controls.Add(mainButton);
-        panel.Controls.Add(mainSubtitle);
-        panel.Controls.Add(offscreenButton);
-        panel.Controls.Add(settingsButton);
-        return panel;
+        right.Controls.Add(bossKeyButton, 0, 0);
+        right.Controls.Add(settingsButton, 0, 1);
+
+        layout.Controls.Add(left, 0, 0);
+        layout.Controls.Add(right, 1, 0);
+        return layout;
     }
 
     Control BuildGuide()
@@ -187,7 +274,9 @@ public sealed class MainForm : Form
         {
             Dock = DockStyle.Fill,
             BackColor = Palette.Panel,
-            Padding = new Padding(18, 14, 18, 12),
+            Padding = new Padding(20, 16, 20, 16),
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
         };
         card.Paint += (s, e) =>
         {
@@ -195,34 +284,46 @@ public sealed class MainForm : Form
             e.Graphics.DrawRectangle(pen, 0, 0, card.Width - 1, card.Height - 1);
         };
 
-        card.Controls.Add(new Label
+        var layout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            ColumnCount = 1,
+            RowCount = 5,
+            BackColor = Palette.Panel,
+        };
+        for (int i = 0; i < 5; i++) layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+        layout.Controls.Add(new Label
         {
             Text = "怎么用（四步）",
-            Font = new Font("Segoe UI Semibold", 11f),
+            Font = new Font("Segoe UI Semibold", 12f),
             ForeColor = Palette.Accent,
             AutoSize = true,
-            Location = new Point(16, 12),
-        });
+            Margin = new Padding(0, 0, 0, 12),
+        }, 0, 0);
 
         string[] steps =
         {
             "1. 打开《守望先锋》，进入你想挂的房间或训练场",
             "2. 点上面的「托比昂战令一键启动」",
             "3. 正常用电脑就行，它会在后台自动按键（你玩游戏时会自动暂停）",
-            "4. 想自己玩时点一次上面的按钮停止；不想看见游戏窗口可以点「隐藏游戏窗口」",
+            "4. 想自己玩时点一次上面的按钮停止；不想看见游戏窗口，点右侧的「隐藏游戏窗口」",
         };
-        int y = 40;
-        foreach (string step in steps)
+        for (int i = 0; i < steps.Length; i++)
         {
-            card.Controls.Add(new Label
+            layout.Controls.Add(new Label
             {
-                Text = step,
+                Text = steps[i],
                 ForeColor = Palette.Ink,
                 AutoSize = true,
-                Location = new Point(18, y),
-            });
-            y += 26;
+                MaximumSize = new Size(800, 0),
+                Margin = new Padding(2, 0, 0, 8),
+            }, 0, i + 1);
         }
+
+        card.Controls.Add(layout);
         return card;
     }
 
@@ -253,7 +354,7 @@ public sealed class MainForm : Form
         string next = PlainLanguage.NextPulse(status);
         if (next.Length > 0) pulseLabel.Text += " · " + next;
 
-        windowLabel.Text = PlainLanguage.WindowInfo(status);
+        windowLabel.Text = PlainLanguage.WindowInfo(status, controller.Session.IsOffscreen);
         resourceNote.Text = PlainLanguage.ResourceNote(status);
 
         bool running = controller.Session.IsRunning;
@@ -263,7 +364,18 @@ public sealed class MainForm : Form
         mainSubtitle.Text = running
             ? "正在自动按键；按键和间隔可在「更多设置」里调整"
             : QuickPresets.TorbjornPass.Subtitle + (status.Pid == null ? "（先打开《守望先锋》）" : "");
-        offscreenButton.Text = controller.Session.IsOffscreen ? "显示游戏窗口" : "隐藏游戏窗口";
+        bossKeyButton.Text = controller.Session.IsOffscreen ? "恢复游戏窗口" : "隐藏游戏窗口";
+    }
+
+    protected override void OnLoad(EventArgs e)
+    {
+        base.OnLoad(e);
+        Rectangle work = Screen.FromControl(this).WorkingArea;
+        int width = Math.Min(900 * DeviceDpi / 96, work.Width - 40);
+        int height = Math.Min(800 * DeviceDpi / 96, work.Height - 40);
+        ClientSize = new Size(width, height);
+        Left = work.Left + (work.Width - Width) / 2;
+        Top = work.Top + (work.Height - Height) / 2;
     }
 
     protected override void OnFormClosing(FormClosingEventArgs e)
@@ -287,22 +399,24 @@ public sealed class MainForm : Form
         Close();
     }
 
-    static Label ValueLabel() => new Label
+    static void ConfigureValueLabel(Label label, float size, Color color)
     {
-        AutoSize = true,
-        ForeColor = Palette.InkSecondary,
-    };
+        label.AutoSize = true;
+        label.Font = new Font("Segoe UI", size);
+        label.ForeColor = color;
+        label.MaximumSize = new Size(820, 0);
+        label.Margin = new Padding(0, 0, 0, 6);
+    }
 
-    static Button ActionButton() => new Button
+    static void StyleSideButton(Button button)
     {
-        FlatStyle = FlatStyle.Flat,
-        BackColor = Palette.Panel,
-        ForeColor = Palette.Ink,
-        FlatAppearance =
-        {
-            BorderColor = Palette.Border,
-            MouseOverBackColor = Palette.AccentWash,
-            MouseDownBackColor = Palette.AccentWash,
-        },
-    };
+        button.Size = new Size(200, 36);
+        button.Margin = new Padding(0, 0, 0, 12);
+        button.FlatStyle = FlatStyle.Flat;
+        button.BackColor = Palette.Panel;
+        button.ForeColor = Palette.Ink;
+        button.FlatAppearance.BorderColor = Palette.Border;
+        button.FlatAppearance.MouseOverBackColor = Palette.AccentWash;
+        button.FlatAppearance.MouseDownBackColor = Palette.AccentWash;
+    }
 }

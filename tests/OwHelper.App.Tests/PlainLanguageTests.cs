@@ -12,8 +12,9 @@ public class PlainLanguageTests
         bool alive = true,
         int? pid = 1234,
         bool partial = false,
-        DateTimeOffset? last = null)
-        => new TrayStatus(state, alive, pid, (nint)0x5A81C, 1920, 1080, 30, 0, 12, last, "log.txt", "config.json", "GPU", "", partial);
+        DateTimeOffset? last = null,
+        bool minimized = false)
+        => new TrayStatus(state, alive, minimized, pid, (nint)0x5A81C, 1920, 1080, 30, 0, 12, last, "log.txt", "config.json", "GPU", "", partial);
 
     static void AssertNoJargon(string text)
     {
@@ -95,11 +96,30 @@ public class PlainLanguageTests
     }
 
     [Fact]
-    public void WindowInfo_HidesTechnicalIds()
+    public void WindowInfo_ShowsSizeWhenWindowed()
     {
-        string text = PlainLanguage.WindowInfo(Status(SessionState.Ready));
+        string text = PlainLanguage.WindowInfo(Status(SessionState.Ready), offscreen: false);
 
-        Assert.Equal("窗口 1920×1080", text);
+        Assert.Equal("游戏窗口：1920×1080", text);
+        AssertNoJargon(text);
+    }
+
+    [Fact]
+    public void WindowInfo_ExplainsMinimizedState()
+    {
+        string text = PlainLanguage.WindowInfo(Status(SessionState.Ready, minimized: true), offscreen: false);
+
+        Assert.Contains("已最小化", text);
+        AssertNoJargon(text);
+    }
+
+    [Fact]
+    public void WindowInfo_ExplainsHiddenState()
+    {
+        string text = PlainLanguage.WindowInfo(Status(SessionState.Ready), offscreen: true);
+
+        Assert.Contains("已隐藏", text);
+        Assert.DoesNotContain("1920", text);
         AssertNoJargon(text);
     }
 
@@ -110,3 +130,4 @@ public class PlainLanguageTests
         Assert.Contains("正常用电脑", PlainLanguage.StartHint(Status(SessionState.Ready)));
     }
 }
+
