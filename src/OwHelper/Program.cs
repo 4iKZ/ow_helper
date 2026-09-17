@@ -98,7 +98,7 @@ class Program
         };
         AppDomain.CurrentDomain.ProcessExit += (s, e) => session.CleanupAsync().GetAwaiter().GetResult();
 
-        await new ConsoleUi(session, keysDisplay, log).RunAsync();
+        await new ConsoleUi(session, keysDisplay, log, config.Resource.GpuBackgroundFpsTarget).RunAsync();
         log.Write(new LogEntry(DateTimeOffset.Now, LogLevel.Information, "APP_EXIT", Message: "quit"));
         return 0;
     }

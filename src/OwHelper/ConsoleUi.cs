@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using OwHelper.Core;
 
@@ -10,17 +11,25 @@ internal sealed class ConsoleUi
     readonly Session session;
     readonly string keysDisplay;
     readonly AppLog log;
+    readonly int gpuTargetFps;
+    IReadOnlyList<GpuInfo>? gpus;
 
-    public ConsoleUi(Session session, string keysDisplay, AppLog log)
+    public ConsoleUi(Session session, string keysDisplay, AppLog log, int gpuTargetFps = 20)
     {
         this.session = session;
         this.keysDisplay = keysDisplay;
         this.log = log;
+        this.gpuTargetFps = gpuTargetFps;
     }
 
     public async Task RunAsync()
     {
         Console.WriteLine("=== OW 后台挂机助手 ===");
+        gpus = GpuEnvironment.Detect();
+        if (GpuEnvironment.HasNvidia(gpus))
+        {
+            Console.WriteLine($"提示: 检测到 NVIDIA GPU。建议在 NVIDIA 控制面板将 Overwatch.exe 的 Background Application Max Frame Rate 设为 {gpuTargetFps} FPS（S 键查看详情）。");
+        }
         if (await session.AttachAsync()) PrintTarget();
         else Console.WriteLine("未找到 Overwatch.exe，启动游戏后按 r 检测。");
         PrintHelp();
@@ -102,6 +111,19 @@ internal sealed class ConsoleUi
         string lastPulse = session.LastPulseAt is DateTimeOffset last ? $" (last {last:HH:mm:ss})" : "";
         Console.WriteLine($"Pulses   : {session.PulseCount}{lastPulse}");
         Console.WriteLine($"Log      : {log.FilePath}");
+        gpus ??= GpuEnvironment.Detect();
+        if (gpus.Count == 0)
+        {
+            Console.WriteLine("GPU      : 未检测到");
+        }
+        else
+        {
+            Console.WriteLine($"GPU      : {string.Join("; ", gpus.Select(g => g.Name))}");
+            if (GpuEnvironment.HasNvidia(gpus))
+            {
+                Console.WriteLine($"GPU 策略 : 手动设置 NVIDIA 控制面板 → Overwatch.exe → Background Application Max Frame Rate = {gpuTargetFps} FPS（程序不修改驱动配置）");
+            }
+        }
     }
 
     void PrintRecentLogs()
