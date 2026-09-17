@@ -100,7 +100,10 @@ public sealed class ResourceGovernor : IResourceGovernor
             if (!ok)
             {
                 int error = Marshal.GetLastWin32Error();
-                return new OperationResult("Power", false, error, $"{message} failed");
+                string detail = error == 1
+                    ? "EcoQoS unsupported by system power policy"
+                    : $"SetProcessInformation failed ({message})";
+                return new OperationResult("Power", false, error, detail);
             }
             return new OperationResult("Power", true, null, message);
         }
