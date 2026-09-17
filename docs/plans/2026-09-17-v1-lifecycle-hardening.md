@@ -113,3 +113,14 @@
 | Nullable 顺序 | 先 Core 后 apps | apps 在 C1 随重写启用 |
 | Jitter 默认值 | 现行为 ±15% | D3 改为默认关闭（PRD §9.5），属有意行为变更 |
 | G1 前使用注意 | `r` 不可在 offscreen 时按；OW 重启后需停/开恢复节流 | README 已注明 |
+
+---
+
+## 执行状态（更新）
+
+- **Stage A / B / C / D：已完成**（A1–D6，逐提交构建 + 测试 + 推送）。
+- **G1 自动化部分已完成**：重启自愈、移出+手动重挂恢复窗口、优先级往返（AboveNormal→BelowNormal→AboveNormal）
+  由 `tests/OwHelper.App.Tests/LiveSessionIntegrationTests.cs` 使用替身窗口进程常驻验证，不需要游戏。
+- **G1 手工项待用户执行**：A/B/C（后台脉冲生效 + 前台跳过）、I（最小化状态）、J（4 小时 soak）。
+- **Stage E/F 未开始**：托盘 UI、NVAPI/Job Object 实验（按计划为可选，默认关闭）。
+- 测试规模：75（Core）+ 33（App）= 108，含架构红线（无 P/Invoke 泄漏、无 UI 框架依赖、源码禁用 API 扫描）。
