@@ -38,7 +38,8 @@ internal sealed class ConsoleUi
             }
             if (key.Key == ConsoleKey.R)
             {
-                if (await session.AttachAsync()) PrintTarget();
+                await session.ReattachAsync();
+                if (session.Target != null) PrintTarget();
                 else Console.WriteLine("  仍未找到 OW");
                 continue;
             }

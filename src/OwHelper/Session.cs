@@ -23,7 +23,9 @@ internal sealed class Session : IAsyncDisposable
     GameWindow? target;
     IResourceGovernor? governor;
     CancellationTokenSource? cts;
+    CancellationTokenSource? wakeCts;
     Task? loopTask;
+    volatile bool reattachRequested;
     int pulseCount;
     int failureStreak;
     int finished;
@@ -47,6 +49,7 @@ internal sealed class Session : IAsyncDisposable
 
     public SessionState State { get; private set; } = SessionState.Detached;
     public int IntervalSec { get; set; } = 30;
+    public int ReattachPollMs { get; set; } = 2000;
     public GameWindow? Target => target;
     public bool IsRunning => State is SessionState.Running or SessionState.Reattaching;
 
@@ -166,10 +169,15 @@ internal sealed class Session : IAsyncDisposable
         while (!ct.IsCancellationRequested)
         {
             GameWindow? current = target;
-            if (current == null || !current.IsAlive)
+            if (reattachRequested || current == null || !current.IsAlive)
             {
-                output("  找不到 OW 窗口，挂机已停止");
-                break;
+                reattachRequested = false;
+                if (!await TryReattachAsync(ct))
+                {
+                    output("  找不到 OW 窗口，挂机已停止");
+                    break;
+                }
+                continue;
             }
             if (current.IsForeground)
             {
@@ -196,15 +204,93 @@ internal sealed class Session : IAsyncDisposable
             }
             try
             {
+                wakeCts = new CancellationTokenSource();
+                using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, wakeCts.Token);
                 double next = IntervalSec * (0.85 + rng.NextDouble() * 0.3);
-                await Task.Delay(Math.Max(1000, (int)(next * 1000)), ct);
+                await Task.Delay(Math.Max(1000, (int)(next * 1000)), linked.Token);
             }
             catch (TaskCanceledException)
             {
-                break;
+                if (ct.IsCancellationRequested) break;
             }
         }
         await FinishAsync();
+    }
+
+    public async Task<bool> ReattachAsync()
+    {
+        await gate.WaitAsync();
+        try
+        {
+            if (!IsRunning) return AttachLocked();
+            reattachRequested = true;
+            wakeCts?.Cancel();
+            return true;
+        }
+        finally { gate.Release(); }
+    }
+
+    async Task<bool> TryReattachAsync(CancellationToken ct)
+    {
+        await gate.WaitAsync();
+        try { State = SessionState.Reattaching; }
+        finally { gate.Release(); }
+        output("  目标已失效，等待重新连接...");
+
+        IResourceGovernor? oldGovernor;
+        int oldPid;
+        await gate.WaitAsync();
+        try
+        {
+            oldGovernor = governor;
+            GameWindow? oldTarget = target;
+            oldPid = oldTarget == null ? -1 : (int)oldTarget.Pid;
+        }
+        finally { gate.Release(); }
+
+        if (placement.IsOffscreen)
+        {
+            WindowPlacementResult restoredPlacement = placement.Restore();
+            output(restoredPlacement.Success
+                ? "  旧窗口位置已恢复"
+                : $"  旧窗口恢复失败: {restoredPlacement.Message}{ErrorCode(restoredPlacement.NativeError)}");
+        }
+        if (oldGovernor != null)
+        {
+            ResourceRestoreResult restored = oldGovernor.Restore();
+            output($"  旧目标资源已恢复：{Describe("已恢复", "CPU 优先级", restored.Priority)}；{Describe("已恢复", "EcoQoS", restored.Power)}");
+        }
+
+        await gate.WaitAsync();
+        try
+        {
+            target = null;
+            governor = null;
+            failureStreak = 0;
+        }
+        finally { gate.Release(); }
+
+        while (!ct.IsCancellationRequested)
+        {
+            GameWindow? found = locator.Find(ProcessName);
+            if (found != null && found.IsAlive)
+            {
+                await gate.WaitAsync();
+                try
+                {
+                    target = found;
+                    governor = governorFactory(found.Process);
+                    ResourceApplyResult applied = governor.Apply();
+                    output($"  已重新连接: PID {oldPid} → {found.Pid}；资源策略：{Describe("已应用", "CPU 优先级", applied.Priority)}；{Describe("已应用", "EcoQoS", applied.Power)}");
+                    State = SessionState.Running;
+                }
+                finally { gate.Release(); }
+                return true;
+            }
+            try { await Task.Delay(ReattachPollMs, ct); }
+            catch (TaskCanceledException) { break; }
+        }
+        return false;
     }
 
     async Task FinishAsync()

@@ -21,6 +21,7 @@ public sealed class FakeWindow : IDisposable
     readonly WndProcDelegate wndProc;
     readonly bool topLevel;
     volatile bool created;
+    int disposedFlag;
     IntPtr handle = IntPtr.Zero;
 
     public IntPtr Handle => handle;
