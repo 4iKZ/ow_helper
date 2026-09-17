@@ -39,3 +39,15 @@
 
 - README：键位表加鼠标、设置界面章节；spec/plan 状态同步。
 - CI/publish 自动覆盖；架构红线保持（鼠标消息在 Core，托盘无 P/Invoke）。
+
+---
+
+## 执行状态（更新）
+
+- **S1 完成**：Core 鼠标原语（`MouseInput`：中心坐标、`MK_*` 标志、X 键高字）+ 探针 `l/n/r/m`；测试覆盖消息/坐标/标志。
+- **S1b 通过（用户实测）**：L/R/M 在 OW 后台均有实际动作 → 鼠标后台合成点击可行。
+- **S2 完成**：`PulseRunner` 分流鼠标与键盘，混合键按下/抬起顺序正确；4 个新测试。
+- **S3 完成**：`SettingsForm`（暖纸主题、OW 预设含鼠标五键、自定义输入）+ `SettingsMapper`（7 个测试）+ 热应用
+  （`Session.UpdateRecipe` / `ReapplyPolicyAsync` / `TrayController.ApplySettingsAsync`）+ 托盘菜单与状态窗入口。
+- 测试规模：104（Core）+ 57（App）= **161**。
+- 待人工验收：设置界面交互（按键多选/自定义/保存提示）、运行中改间隔的即时生效、改键后「开始」用新键。

@@ -89,7 +89,22 @@ src\OwHelper\bin\Release\net8.0-windows\OwHelper.exe shift,w 30
 
 可用按键名：`shift` `ctrl` `alt` `lshift` `rshift` `lctrl` `rctrl` `lalt` `ralt` `space` `enter` `tab` `esc`、
 `a`–`z`、`0`–`9`、`f1`–`f12`、`up` `down` `left` `right`、`insert` `delete` `home` `end` `pageup` `pagedown`、
-`printscreen` `numlock` `numdivide`（方向键等扩展键会正确设置 extended-key 位）。
+`printscreen` `numlock` `numdivide`（方向键等扩展键会正确设置 extended-key 位），
+以及**鼠标按钮**：`mouseleft`(`lmb`) `mouseright`(`rmb`) `mousemiddle`(`mmb`) `mouse4` `mouse5`
+（后台合成点击已实机验证；点击位置固定在窗口客户区中心）。
+
+## 设置界面（托盘）
+
+右键托盘图标 → **设置…**（或状态窗口的「设置」按钮）：
+
+- **按键**：OW 常用键位预设多选（LMB/RMB/MMB/侧键/Shift/E/Q/V/F/R/Space/Ctrl/WASD/1/2/Tab）+ 自定义输入（支持上表全部键名）
+- **时序**：间隔 / 按住 / focus 等待 / 抖动
+- **资源**：CPU 优先级、EcoQoS
+- **窗口与行为**：移出屏幕、重连后保持移出、前台跳过
+- **日志**：级别与保留天数
+
+保存后：`config.json` 自动更新；间隔 / 抖动 / 优先级 / 前台跳过 / 窗口选项**立即生效**（运行中会重新应用资源策略并显示结果）；
+**按键与按住、focus 时序在下次「开始」生效**（界面已注明）。
 
 按键：
 
