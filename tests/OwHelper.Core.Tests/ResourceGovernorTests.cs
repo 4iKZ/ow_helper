@@ -15,7 +15,7 @@ public class ResourceGovernorTests
         {
             self.PriorityClass = ProcessPriorityClass.AboveNormal;
 
-            var apply = governor.Apply();
+            var apply = governor.Apply(ResourcePolicy.Default);
             Assert.True(apply.Priority.Success);
             Assert.Equal(ProcessPriorityClass.BelowNormal, self.PriorityClass);
 
@@ -39,8 +39,8 @@ public class ResourceGovernorTests
         {
             self.PriorityClass = ProcessPriorityClass.AboveNormal;
 
-            governor.Apply();
-            governor.Apply();
+            governor.Apply(ResourcePolicy.Default);
+            governor.Apply(ResourcePolicy.Default);
             governor.Restore();
 
             Assert.Equal(ProcessPriorityClass.AboveNormal, self.PriorityClass);
@@ -64,7 +64,7 @@ public class ResourceGovernorTests
         try
         {
             self.PriorityClass = ProcessPriorityClass.AboveNormal;
-            governor.Apply();
+            governor.Apply(ResourcePolicy.Default);
 
             var snapshot = governor.Snapshot;
             Assert.NotNull(snapshot);
@@ -86,7 +86,7 @@ public class ResourceGovernorTests
         var governor = new ResourceGovernor(self);
         try
         {
-            var apply = governor.Apply();
+            var apply = governor.Apply(ResourcePolicy.Default);
 
             Assert.Equal("Priority", apply.Priority.Name);
             Assert.Equal("Power", apply.Power.Name);
@@ -124,10 +124,12 @@ public class ResourceGovernorTests
         process.WaitForExit();
 
         var governor = new ResourceGovernor(process);
-        var apply = governor.Apply();
+        var apply = governor.Apply(ResourcePolicy.Default);
 
         Assert.False(apply.Success);
         Assert.False(apply.Priority.Success);
         process.Dispose();
     }
 }
+
+

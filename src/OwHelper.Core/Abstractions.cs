@@ -16,7 +16,7 @@ public interface IPulseSender
 public interface IResourceGovernor
 {
     ResourceSnapshot? Snapshot { get; }
-    ResourceApplyResult Apply();
+    ResourceApplyResult Apply(ResourcePolicy policy);
     ResourceRestoreResult Restore();
 }
 

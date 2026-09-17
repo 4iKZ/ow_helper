@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -12,8 +13,20 @@ class Program
     {
         Console.OutputEncoding = Encoding.UTF8;
 
-        var keys = new List<int> { 0x10 };
-        string keysDisplay = "shift";
+        List<string> problems;
+        AppConfig config = AppConfig.Load(AppConfig.DefaultPath, out problems);
+
+        var log = new AppLog(AppLog.DefaultFilePath(), config.MinLogLevel());
+        foreach (string problem in problems)
+        {
+            Console.WriteLine("配置: " + problem);
+            log.Write(new LogEntry(DateTimeOffset.Now, LogLevel.Warning, "CONFIG_LOAD_FAILED", Message: problem));
+        }
+        AppLog.DeleteOlderThan(Path.GetDirectoryName(log.FilePath) ?? "", config.Logging.RetainDays);
+
+        List<int> keys = config.BuildRecipe().Keys.ToList();
+        string keysDisplay = string.Join(",", config.Input.Keys);
+        int intervalSec = config.Input.IntervalSeconds;
         if (args.Length > 0 && !string.IsNullOrWhiteSpace(args[0]))
         {
             try
@@ -28,14 +41,20 @@ class Program
                 return 1;
             }
         }
-        int intervalSec = 30;
         if (args.Length > 1 && int.TryParse(args[1], out int iv) && iv >= 2) intervalSec = iv;
 
-        var log = new AppLog(AppLog.DefaultFilePath());
         log.Write(new LogEntry(DateTimeOffset.Now, LogLevel.Information, "APP_START", Message: string.Join(" ", args)));
 
         var session = new Session(
-            new PulseRecipe { Keys = keys },
+            new PulseRecipe
+            {
+                Keys = keys,
+                SendFocus = config.Input.SendFocus,
+                SendActivate = config.Input.SendActivate,
+                SendActivateApp = config.Input.SendActivateApp,
+                FocusWaitMs = config.Input.FocusWaitMilliseconds,
+                HoldMs = config.Input.HoldMilliseconds,
+            },
             new GameWindowLocator(),
             new PulseSender(),
             process => new ResourceGovernor(process),
@@ -44,6 +63,12 @@ class Program
             log)
         {
             IntervalSec = intervalSec,
+            JitterPercent = config.Input.JitterPercent,
+            TargetProcessName = config.Target.ProcessName,
+            Policy = config.BuildPolicy(),
+            SkipWhenForeground = config.Input.SkipWhenTargetForeground,
+            AllowMoveOffscreen = config.Window.AllowMoveOffscreen,
+            KeepOffscreenAcrossRestart = config.Window.KeepOffscreenAcrossRestart,
         };
 
         Console.CancelKeyPress += (s, e) =>
@@ -60,4 +85,3 @@ class Program
         return 0;
     }
 }
-

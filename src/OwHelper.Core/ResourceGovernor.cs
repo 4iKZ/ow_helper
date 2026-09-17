@@ -17,12 +17,20 @@ public sealed class ResourceGovernor : IResourceGovernor
         ? new ResourceSnapshot(originalPriority, true)
         : null;
 
-    public ResourceApplyResult Apply()
+    public ResourceApplyResult Apply(ResourcePolicy policy)
     {
         CaptureOnce();
-        OperationResult priority = SetPriority(ProcessPriorityClass.BelowNormal, "BelowNormal");
-        (uint control, uint state) = PowerThrottlePolicy.EcoQoS;
-        OperationResult power = SetPowerThrottle(control, state, "EcoQoS enabled");
+        OperationResult priority = SetPriority(policy.Priority, policy.Priority.ToString());
+        OperationResult power;
+        if (policy.EcoQoS)
+        {
+            (uint control, uint state) = PowerThrottlePolicy.EcoQoS;
+            power = SetPowerThrottle(control, state, "EcoQoS enabled");
+        }
+        else
+        {
+            power = new OperationResult("Power", true, null, "EcoQoS disabled by policy");
+        }
         return new ResourceApplyResult(priority, power);
     }
 

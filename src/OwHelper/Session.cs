@@ -55,6 +55,10 @@ internal sealed class Session : IAsyncDisposable
     public int JitterPercent { get; set; }
     public int ReattachPollMs { get; set; } = 2000;
     public string TargetProcessName { get; set; } = ProcessName;
+    public ResourcePolicy Policy { get; set; } = ResourcePolicy.Default;
+    public bool SkipWhenForeground { get; set; } = true;
+    public bool AllowMoveOffscreen { get; set; } = true;
+    public bool KeepOffscreenAcrossRestart { get; set; }
     public GameWindow? Target => target;
     public int PulseCount => pulseCount;
     public DateTimeOffset? LastPulseAt { get; private set; }
@@ -99,7 +103,7 @@ internal sealed class Session : IAsyncDisposable
             State = SessionState.Starting;
             Interlocked.Exchange(ref finished, 0);
             failureStreak = 0;
-            ResourceApplyResult applied = governor!.Apply();
+            ResourceApplyResult applied = governor!.Apply(Policy);
             output($"  资源策略：{Describe("已应用", "CPU 优先级", applied.Priority)}；{Describe("已应用", "EcoQoS", applied.Power)}");
             LogResourceApply(applied);
             cts = new CancellationTokenSource();
@@ -152,6 +156,10 @@ internal sealed class Session : IAsyncDisposable
                 output(result.Success ? "  OW 窗口已还原" : $"  窗口还原失败: {result.Message}{ErrorCode(result.NativeError)}");
                 LogPlacement("WINDOW_RESTORE", result, current);
             }
+            else if (!AllowMoveOffscreen)
+            {
+                output("  配置已禁用移出屏幕（window.allowMoveOffscreen=false）");
+            }
             else
             {
                 WindowPlacementResult result = placement.MoveOffscreen(current.Handle, (int)current.Pid);
@@ -194,7 +202,7 @@ internal sealed class Session : IAsyncDisposable
                 }
                 continue;
             }
-            if (current.IsForeground)
+            if (current.IsForeground && SkipWhenForeground)
             {
                 output($"  [{DateTime.Now:HH:mm:ss}] OW 在前台，本次跳过");
                 Log(LogLevel.Information, "PULSE_SKIPPED_FOREGROUND", pid: (int)current.Pid, hwnd: current.Handle, pulseIndex: pulseCount + 1);
@@ -266,6 +274,7 @@ internal sealed class Session : IAsyncDisposable
 
         IResourceGovernor? oldGovernor;
         int oldPid;
+        bool wasOffscreen = placement.IsOffscreen;
         await gate.WaitAsync();
         try
         {
@@ -311,11 +320,17 @@ internal sealed class Session : IAsyncDisposable
                 {
                     target = found;
                     governor = governorFactory(found.Process);
-                    ResourceApplyResult applied = governor.Apply();
+                    ResourceApplyResult applied = governor.Apply(Policy);
                     output($"  已重新连接: PID {oldPid} → {found.Pid}；资源策略：{Describe("已应用", "CPU 优先级", applied.Priority)}；{Describe("已应用", "EcoQoS", applied.Power)}");
                     LogResourceApply(applied);
                     Log(LogLevel.Information, "TARGET_REATTACHED", pid: (int)found.Pid, hwnd: found.Handle, message: $"{oldPid} -> {found.Pid}");
                     State = SessionState.Running;
+                    if (wasOffscreen && KeepOffscreenAcrossRestart && AllowMoveOffscreen)
+                    {
+                        WindowPlacementResult moved = placement.MoveOffscreen(found.Handle, (int)found.Pid);
+                        output(moved.Success ? "  已按配置将新窗口移出屏幕" : $"  新窗口移出屏幕失败: {moved.Message}{ErrorCode(moved.NativeError)}");
+                        LogPlacement("WINDOW_MOVE_OFFSCREEN", moved, found);
+                    }
                 }
                 finally { gate.Release(); }
                 return true;

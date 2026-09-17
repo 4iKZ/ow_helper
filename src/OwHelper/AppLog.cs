@@ -30,9 +30,14 @@ internal sealed class AppLog
 {
     readonly object gate = new object();
     readonly string filePath;
+    readonly LogLevel minLevel;
     int writeFailures;
 
-    public AppLog(string filePath) => this.filePath = filePath;
+    public AppLog(string filePath, LogLevel minLevel = LogLevel.Information)
+    {
+        this.filePath = filePath;
+        this.minLevel = minLevel;
+    }
 
     public string FilePath => filePath;
 
@@ -47,8 +52,29 @@ internal sealed class AppLog
         return Path.Combine(dir, $"owhelper-{DateTime.Now:yyyyMMdd}.log");
     }
 
+    public static int DeleteOlderThan(string directory, int retainDays)
+    {
+        int deleted = 0;
+        try
+        {
+            if (!Directory.Exists(directory)) return 0;
+            DateTime cutoff = DateTime.Now.AddDays(-retainDays);
+            foreach (string file in Directory.EnumerateFiles(directory, "owhelper-*.log"))
+            {
+                if (File.GetLastWriteTime(file) < cutoff)
+                {
+                    File.Delete(file);
+                    deleted++;
+                }
+            }
+        }
+        catch { }
+        return deleted;
+    }
+
     public void Write(LogEntry entry)
     {
+        if (entry.Level < minLevel) return;
         try
         {
             string? directory = Path.GetDirectoryName(filePath);

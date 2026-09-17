@@ -41,7 +41,7 @@ public class SessionLifecycleTests
 
         public ResourceSnapshot? Snapshot => null;
 
-        public ResourceApplyResult Apply()
+        public ResourceApplyResult Apply(ResourcePolicy policy)
         {
             ApplyCalls++;
             OperationResult priority = PriorityFails
@@ -263,4 +263,5 @@ public class SessionLifecycleTests
         return condition();
     }
 }
+
 
