@@ -31,14 +31,14 @@ class Program
         }
         AppLog.DeleteOlderThan(Path.GetDirectoryName(log.FilePath) ?? "", config.Logging.RetainDays);
 
-        List<int> keys = config.BuildRecipe().Keys.ToList();
         string keysDisplay = string.Join(",", config.Input.Keys);
-        int intervalSec = config.Input.IntervalSeconds;
+        List<int>? cliKeys = null;
+        int? cliInterval = null;
         if (args.Length > 0 && !string.IsNullOrWhiteSpace(args[0]))
         {
             try
             {
-                keys = args[0].Split(',').Select(KeyNames.Parse).ToList();
+                cliKeys = args[0].Split(',').Select(KeyNames.Parse).ToList();
                 keysDisplay = args[0];
             }
             catch (Exception ex)
@@ -48,7 +48,7 @@ class Program
                 return 1;
             }
         }
-        if (args.Length > 1 && int.TryParse(args[1], out int iv) && iv >= 2) intervalSec = iv;
+        if (args.Length > 1 && int.TryParse(args[1], out int iv) && iv >= 2) cliInterval = iv;
 
         log.Write(new LogEntry(DateTimeOffset.Now, LogLevel.Information, "APP_START", Message: string.Join(" ", args)));
 
@@ -63,31 +63,30 @@ class Program
         });
 
         var session = new Session(
-            new PulseRecipe
-            {
-                Keys = keys,
-                SendFocus = config.Input.SendFocus,
-                SendActivate = config.Input.SendActivate,
-                SendActivateApp = config.Input.SendActivateApp,
-                FocusWaitMs = config.Input.FocusWaitMilliseconds,
-                HoldMs = config.Input.HoldMilliseconds,
-            },
+            config.BuildRecipe(),
             new GameWindowLocator(),
             new PulseSender(),
             process => new ResourceGovernor(process),
             new WindowPlacementController(),
             Console.WriteLine,
             log,
-            stateStore)
+            stateStore);
+        session.ApplyConfig(config);
+
+        if (cliKeys != null)
         {
-            IntervalSec = intervalSec,
-            JitterPercent = config.Input.JitterPercent,
-            TargetProcessName = config.Target.ProcessName,
-            Policy = config.BuildPolicy(),
-            SkipWhenForeground = config.Input.SkipWhenTargetForeground,
-            AllowMoveOffscreen = config.Window.AllowMoveOffscreen,
-            KeepOffscreenAcrossRestart = config.Window.KeepOffscreenAcrossRestart,
-        };
+            PulseRecipe baseRecipe = config.BuildRecipe();
+            session.UpdateRecipe(new PulseRecipe
+            {
+                Keys = cliKeys,
+                SendFocus = baseRecipe.SendFocus,
+                SendActivate = baseRecipe.SendActivate,
+                SendActivateApp = baseRecipe.SendActivateApp,
+                FocusWaitMs = baseRecipe.FocusWaitMs,
+                HoldMs = baseRecipe.HoldMs,
+            });
+        }
+        if (cliInterval.HasValue) session.IntervalSec = cliInterval.Value;
 
         Console.CancelKeyPress += (s, e) =>
         {
