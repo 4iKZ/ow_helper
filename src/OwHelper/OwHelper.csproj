@@ -8,6 +8,7 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <AssemblyName>OwHelper</AssemblyName>
     <RootNamespace>OwHelper</RootNamespace>
+    <Version>1.0.0</Version>
   </PropertyGroup>
 
   <ItemGroup>

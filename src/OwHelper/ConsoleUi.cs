@@ -24,7 +24,7 @@ internal sealed class ConsoleUi
 
     public async Task RunAsync()
     {
-        Console.WriteLine("=== OW 后台挂机助手 ===");
+        Console.WriteLine($"=== OW 后台挂机助手 v{VersionText()} ===");
         gpus = GpuEnvironment.Detect();
         if (GpuEnvironment.HasNvidia(gpus))
         {
@@ -142,4 +142,7 @@ internal sealed class ConsoleUi
         Console.WriteLine($"\n按键: [{keysDisplay}]   间隔: {session.IntervalSec}s");
         Console.WriteLine("空格=开始/停止   m=移出屏幕/还原   r=重新检测   S=状态   L=最近日志   +/-=间隔增减 5s   q=退出\n");
     }
+
+    static string VersionText()
+        => typeof(ConsoleUi).Assembly.GetName().Version?.ToString(3) ?? "dev";
 }
