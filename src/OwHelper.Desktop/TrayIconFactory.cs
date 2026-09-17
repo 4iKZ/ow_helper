@@ -4,7 +4,7 @@ using System.Drawing.Drawing2D;
 using System.IO;
 using System.Text;
 
-namespace OwHelper.Tray;
+namespace OwHelper.Desktop;
 
 public static class TrayIconFactory
 {
@@ -99,3 +99,4 @@ public static class TrayIconFactory
         writer.Flush();
     }
 }
+

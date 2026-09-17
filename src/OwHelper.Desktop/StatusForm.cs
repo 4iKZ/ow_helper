@@ -2,7 +2,7 @@ using System;
 using System.Drawing;
 using System.Windows.Forms;
 
-namespace OwHelper.Tray;
+namespace OwHelper.Desktop;
 
 public sealed class StatusForm : Form
 {
@@ -178,3 +178,4 @@ public sealed class StatusForm : Form
         },
     };
 }
+

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Windows.Forms;
-using OwHelper.Tray;
+using OwHelper.Desktop;
 using Xunit;
 
 namespace OwHelper.App.Tests;
@@ -72,3 +72,4 @@ public class SettingsFormGuardTests
         Assert.Equal(0, checkedCount);
     }
 }
+

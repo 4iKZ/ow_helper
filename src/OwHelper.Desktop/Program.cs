@@ -2,7 +2,7 @@ using System;
 using System.Windows.Forms;
 using OwHelper;
 
-namespace OwHelper.Tray;
+namespace OwHelper.Desktop;
 
 internal static class Program
 {
@@ -21,3 +21,4 @@ internal static class Program
         Application.Run(new TrayApplicationContext());
     }
 }
+

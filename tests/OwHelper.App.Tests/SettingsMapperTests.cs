@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
-using OwHelper.Tray;
+using OwHelper.Desktop;
 using Xunit;
 
 namespace OwHelper.App.Tests;
@@ -71,3 +71,4 @@ public class SettingsMapperTests
         Assert.False(SettingsMapper.IsPreset("f1"));
     }
 }
+

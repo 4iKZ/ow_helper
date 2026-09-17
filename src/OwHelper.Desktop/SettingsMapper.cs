@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace OwHelper.Tray;
+namespace OwHelper.Desktop;
 
 public static class SettingsMapper
 {
@@ -52,3 +52,4 @@ public static class SettingsMapper
     public static string CustomKeysText(IEnumerable<string> keys)
         => string.Join(",", keys.Where(k => !IsPreset(k)));
 }
+

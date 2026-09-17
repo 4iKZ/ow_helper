@@ -6,7 +6,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using OwHelper.Core;
 
-namespace OwHelper.Tray;
+namespace OwHelper.Desktop;
 
 public sealed class TrayController
 {
@@ -143,3 +143,4 @@ public sealed class TrayController
             Message: ex.Message));
     }
 }
+

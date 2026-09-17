@@ -1,7 +1,7 @@
 using System.Drawing;
 using System.Windows.Forms;
 
-namespace OwHelper.Tray;
+namespace OwHelper.Desktop;
 
 public sealed class PaperMenuRenderer : ToolStripProfessionalRenderer
 {
@@ -38,3 +38,4 @@ public sealed class PaperMenuRenderer : ToolStripProfessionalRenderer
         public override Color SeparatorLight => Palette.Panel;
     }
 }
+

@@ -1,7 +1,7 @@
 using System;
 using System.Drawing;
 using OwHelper;
-using OwHelper.Tray;
+using OwHelper.Desktop;
 using Xunit;
 
 namespace OwHelper.App.Tests;
@@ -93,3 +93,4 @@ public class TrayStatusMapperTests
         Assert.True(icon.Height >= 16);
     }
 }
+

@@ -1,6 +1,6 @@
 using System.Drawing;
 
-namespace OwHelper.Tray;
+namespace OwHelper.Desktop;
 
 public static class Palette
 {
@@ -19,3 +19,4 @@ public static class Palette
 
     static Color FromHex(string hex) => ColorTranslator.FromHtml(hex);
 }
+

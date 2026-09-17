@@ -13,7 +13,7 @@
     <ProjectReference Include="..\..\src\OwHelper.Core\OwHelper.Core.csproj" />
     <ProjectReference Include="..\..\src\OwHelper.App\OwHelper.App.csproj" />
     <ProjectReference Include="..\..\src\OwHelper\OwHelper.csproj" />
-    <ProjectReference Include="..\..\src\OwHelper.Tray\OwHelper.Tray.csproj" />
+    <ProjectReference Include="..\..\src\OwHelper.Desktop\OwHelper.Desktop.csproj" />
     <ProjectReference Include="..\OwHelper.TestSupport\OwHelper.TestSupport.csproj" />
     <ProjectReference Include="..\OwHelper.TestSupport.StandIn\OwHelper.TestSupport.StandIn.csproj" />
   </ItemGroup>
@@ -28,3 +28,4 @@
   </ItemGroup>
 
 </Project>
+

@@ -4,7 +4,7 @@ Windows 后台输入调度器 + 进程资源控制器：让 Overwatch 2 在**失
 
 提供两个前端（**共用单实例互斥体，二选一运行**）：
 
-- **托盘版 `OwHelper.Tray.exe`**（推荐日常使用）：状态色图标 + 菜单 + 完整状态窗口 + 通知气泡
+- **托盘版 `OwHelper.Desktop.exe`**（推荐日常使用）：状态色图标 + 菜单 + 完整状态窗口 + 通知气泡
 - **控制台版 `OwHelper.exe`**：无窗口场景 / 调试 / 脚本化
 
 > 本工具只使用常规 Windows API（窗口消息投递 + 进程调度接口）。
@@ -23,7 +23,7 @@ src/
 ├── OwHelper.Core/     # 类库：Win32 互操作、目标发现/校验、脉冲引擎、资源治理、窗口放置、GPU 检测
 ├── OwHelper.App/      # 类库：Session 状态机、配置、日志、崩溃恢复（前端共享）
 ├── OwHelper/          # 控制台前端
-├── OwHelper.Tray/     # 托盘前端（WinForms，暖纸主题：暖纸底/墨黑/焦赭强调）
+├── OwHelper.Desktop/     # 托盘前端（WinForms，暖纸主题：暖纸底/墨黑/焦赭强调）
 └── BgKeyProbe/        # 诊断工具（消息矩阵实验、窗口清单、队列探测）
 tests/
 ├── OwHelper.Core.Tests/          # 单元 + 假窗口集成测试 + 架构红线测试
@@ -60,7 +60,7 @@ CI：GitHub Actions（windows-latest）：restore → build → test。
 ### 托盘版（推荐）
 
 ```powershell
-src\OwHelper.Tray\bin\Release\net8.0-windows\OwHelper.Tray.exe
+src\OwHelper.Desktop\bin\Release\net8.0-windows\OwHelper.Desktop.exe
 ```
 
 托盘图标颜色即状态：苔绿=运行中、赭黄=等待/重连/资源部分失败、砖红=故障、暖灰=停止。
@@ -215,3 +215,4 @@ NVIDIA App / NVIDIA Control Panel → Graphics / Manage 3D Settings → Program 
 ## License
 
 尚未选定，见 [LICENSE-TODO.md](LICENSE-TODO.md)。
+

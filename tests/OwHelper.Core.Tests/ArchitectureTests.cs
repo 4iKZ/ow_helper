@@ -26,7 +26,7 @@ public class ArchitectureTests
     [InlineData("BgKeyProbe")]
     [InlineData("OwHelper")]
     [InlineData("OwHelper.App")]
-    [InlineData("OwHelper.Tray")]
+    [InlineData("OwHelper.Desktop")]
     public void AppAssembly_DeclaresNoPInvokes(string assemblyName)
     {
         Assembly assembly = Assembly.Load(assemblyName);
@@ -58,7 +58,7 @@ public class ArchitectureTests
             .ToList();
 
         Assert.DoesNotContain(references, name => name.Contains("OwHelper.App", StringComparison.OrdinalIgnoreCase));
-        Assert.DoesNotContain(references, name => name.Contains("OwHelper.Tray", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(references, name => name.Contains("OwHelper.Desktop", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(references, name => name.Equals("OwHelper", StringComparison.OrdinalIgnoreCase));
     }
 
@@ -92,3 +92,4 @@ public class ArchitectureTests
         throw new InvalidOperationException("找不到仓库根目录（ow_helper.sln）");
     }
 }
+

@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using OwHelper.Core;
 
-namespace OwHelper.Tray;
+namespace OwHelper.Desktop;
 
 internal sealed class TrayApplicationContext : ApplicationContext
 {
@@ -189,3 +189,4 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     static string TrimToTrayLimit(string text) => text.Length <= 63 ? text : text[..62] + "…";
 }
+

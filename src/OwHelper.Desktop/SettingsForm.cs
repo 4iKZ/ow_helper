@@ -5,7 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
-namespace OwHelper.Tray;
+namespace OwHelper.Desktop;
 
 public sealed class SettingsForm : Form
 {
@@ -297,3 +297,4 @@ public sealed class SettingsForm : Form
         return panel;
     }
 }
+

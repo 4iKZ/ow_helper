@@ -2,7 +2,7 @@ using System;
 using System.Drawing;
 using OwHelper.Core;
 
-namespace OwHelper.Tray;
+namespace OwHelper.Desktop;
 
 public sealed record TrayStatus(
     SessionState State,
@@ -80,3 +80,4 @@ public static class TrayStatusMapper
         return $"{(int)delta.TotalHours} 小时前脉冲";
     }
 }
+
