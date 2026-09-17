@@ -15,6 +15,7 @@ public sealed class StatusForm : Form
     readonly Label pulsesValue = ValueLabel();
     readonly Label logValue = ValueLabel();
     readonly Label gpuValue = ValueLabel();
+    readonly Label gpuGuideValue = ValueLabel();
     readonly Button toggleButton = ActionButton();
     readonly Button offscreenButton = ActionButton();
     readonly Button logsButton = ActionButton();
@@ -28,7 +29,7 @@ public sealed class StatusForm : Form
         BackColor = Palette.Paper;
         ForeColor = Palette.Ink;
         Font = new Font("Segoe UI", 9f);
-        ClientSize = new Size(620, 300);
+        ClientSize = new Size(620, 332);
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         MinimizeBox = false;
@@ -39,7 +40,7 @@ public sealed class StatusForm : Form
             Dock = DockStyle.Fill,
             Padding = new Padding(18, 16, 18, 8),
             ColumnCount = 2,
-            RowCount = 7,
+            RowCount = 8,
         };
         grid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 88f));
         grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
@@ -50,6 +51,7 @@ public sealed class StatusForm : Form
         AddRow(grid, 4, "脉冲", pulsesValue);
         AddRow(grid, 5, "日志", logValue);
         AddRow(grid, 6, "GPU", gpuValue);
+        AddRow(grid, 7, "GPU 策略", gpuGuideValue);
 
         toggleButton.Text = "开始";
         toggleButton.Click += async (s, e) =>
@@ -103,6 +105,8 @@ public sealed class StatusForm : Form
             : status.PulseCount.ToString();
         logValue.Text = status.LogPath;
         gpuValue.Text = string.IsNullOrEmpty(status.GpuSummary) ? "未检测到" : status.GpuSummary;
+        gpuGuideValue.Text = string.IsNullOrEmpty(status.GpuGuidance) ? "—" : status.GpuGuidance;
+        gpuGuideValue.ForeColor = Palette.InkSecondary;
         toggleButton.Text = controller.Session.IsRunning ? "停止" : "开始";
         offscreenButton.Text = controller.Session.IsOffscreen ? "还原窗口" : "移出屏幕";
     }

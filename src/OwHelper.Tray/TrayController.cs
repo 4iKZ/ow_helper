@@ -42,7 +42,14 @@ public sealed class TrayController
             log.FilePath,
             AppConfig.DefaultPath,
             string.Join("; ", gpus.Select(g => g.Name)),
+            BuildGpuGuidance(gpus),
             session.LastResourceApplyPartial);
+    }
+
+    string BuildGpuGuidance(IReadOnlyList<GpuInfo> detected)
+    {
+        if (!config.GpuGuideEnabled || !GpuEnvironment.HasNvidia(detected)) return "";
+        return $"NVIDIA 控制面板 → Overwatch.exe 后台最大帧率 = {config.Resource.GpuBackgroundFpsTarget} FPS";
     }
 
     public async Task AttachAsync()

@@ -18,6 +18,7 @@ public sealed record TrayStatus(
     string LogPath,
     string ConfigPath,
     string GpuSummary,
+    string GpuGuidance,
     bool ResourcePartialFailure);
 
 public static class TrayStatusMapper

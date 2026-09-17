@@ -12,21 +12,23 @@ internal sealed class ConsoleUi
     readonly string keysDisplay;
     readonly AppLog log;
     readonly int gpuTargetFps;
+    readonly bool gpuGuideEnabled;
     IReadOnlyList<GpuInfo>? gpus;
 
-    public ConsoleUi(Session session, string keysDisplay, AppLog log, int gpuTargetFps = 20)
+    public ConsoleUi(Session session, string keysDisplay, AppLog log, int gpuTargetFps = 20, bool gpuGuideEnabled = true)
     {
         this.session = session;
         this.keysDisplay = keysDisplay;
         this.log = log;
         this.gpuTargetFps = gpuTargetFps;
+        this.gpuGuideEnabled = gpuGuideEnabled;
     }
 
     public async Task RunAsync()
     {
         Console.WriteLine($"=== OW 后台挂机助手 v{VersionText()} ===");
         gpus = GpuEnvironment.Detect();
-        if (GpuEnvironment.HasNvidia(gpus))
+        if (gpuGuideEnabled && GpuEnvironment.HasNvidia(gpus))
         {
             Console.WriteLine($"提示: 检测到 NVIDIA GPU。建议在 NVIDIA 控制面板将 Overwatch.exe 的 Background Application Max Frame Rate 设为 {gpuTargetFps} FPS（S 键查看详情）。");
         }
@@ -119,9 +121,13 @@ internal sealed class ConsoleUi
         else
         {
             Console.WriteLine($"GPU      : {string.Join("; ", gpus.Select(g => g.Name))}");
-            if (GpuEnvironment.HasNvidia(gpus))
+            if (gpuGuideEnabled && GpuEnvironment.HasNvidia(gpus))
             {
                 Console.WriteLine($"GPU 策略 : 手动设置 NVIDIA 控制面板 → Overwatch.exe → Background Application Max Frame Rate = {gpuTargetFps} FPS（程序不修改驱动配置）");
+            }
+            else if (!gpuGuideEnabled)
+            {
+                Console.WriteLine("GPU 策略 : 引导已关闭（resource.gpuPolicyMode=Disabled）");
             }
         }
     }

@@ -127,6 +127,9 @@ public sealed class AppConfig
     public LogLevel MinLogLevel()
         => Enum.TryParse(Logging.Level, true, out LogLevel level) ? level : LogLevel.Information;
 
+    public bool GpuGuideEnabled
+        => !string.Equals(Resource.GpuPolicyMode, "Disabled", StringComparison.OrdinalIgnoreCase);
+
     void Validate(List<string> problems)
     {
         if (Input.IntervalSeconds < 5 || Input.IntervalSeconds > 300)

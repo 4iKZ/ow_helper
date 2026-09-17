@@ -124,6 +124,17 @@ public class AppConfigTests
     }
 
     [Fact]
+    public void GpuGuide_DisabledByPolicyMode()
+    {
+        var config = new AppConfig();
+        Assert.True(config.GpuGuideEnabled);
+
+        config.Resource.GpuPolicyMode = "Disabled";
+
+        Assert.False(config.GpuGuideEnabled);
+    }
+
+    [Fact]
     public void DeleteOlderThan_RemovesOnlyOldLogs()
     {
         string dir = TempDir();
