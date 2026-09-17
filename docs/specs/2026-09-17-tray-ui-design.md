@@ -1,5 +1,6 @@
 # OwHelper.Tray 托盘 UI 设计（Stage E）
 
+> 实现现状：**已被取代**——托盘已改为「大主窗口 + 托盘常驻」，文中的 StatusForm 由 MainForm 取代（见 Stage H 设计与 README）。现役说明以 README 为准。
 > 状态：已与用户确认（配色 C / 共用互斥体二选一 / 完整状态窗口）
 > 关联：`docs/ow_helper_PRD_v1.0.md` §19、§20、§34
 
