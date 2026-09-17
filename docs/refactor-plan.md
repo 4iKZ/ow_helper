@@ -180,7 +180,7 @@ ow_helper/
 
 **Before：** 两个可执行程序（OwHelper 316 行 / BgKeyProbe 365 行）各自复制了一份 Win32 互操作层（6 个 DllImport + RECT 重复），脉冲配方内联在各自的函数里且已漂移；app 的 Pulse() 不检查 PostMessage 返回值（静默失败）；无共享库、无测试、根目录无解决方案。
 
-**After：** 三层结构 —— `OwHelper.Core`（类库：Native 内部化、GameWindow、PulseRecipe/PulseRunner、ResourceGovernor、WindowPlacement、CursorState、KeyNames、Schedule）+ 两个薄前端（`OwHelper` 产品 / `BgKeyProbe` 诊断）；`ow_helper.sln` 一把构建；38 个测试。
+**After：** 三层结构 —— `OwHelper.Core`（类库：Native 内部化、GameWindow、PulseRecipe/PulseRunner、ResourceGovernor、WindowPlacement、CursorState、KeyNames）+ 两个薄前端（`OwHelper` 产品 / `BgKeyProbe` 诊断）；`ow_helper.sln` 一把构建；35 个测试。
 
 **Coupling removed：** 6 个 P/Invoke 声明与窗口枚举/脉冲逻辑的复制粘贴；配方知识不再分散在两个程序里（改动点收敛为 `PulseRecipe`）。
 
@@ -188,14 +188,14 @@ ow_helper/
 
 **Behavior verification：**
 - `dotnet build ow_helper.sln`：0 警告 0 错误。
-- `dotnet test`：38/38 通过（含假窗口序列集成测试：`b` 配方 = SETFOCUS→DOWN→UP→KILLFOCUS，激活配方含 ACTIVATEAPP/ACTIVATE 前后置，多键顺序与逆序、lParam 扫描码/状态位、重复位）。
+- `dotnet test`：35/35 通过（含假窗口序列集成测试：`b` 配方 = SETFOCUS→DOWN→UP→KILLFOCUS，激活配方含 ACTIVATEAPP/ACTIVATE 前后置，多键顺序与逆序、lParam 扫描码/状态位）。
 - 无 OW 启动冒烟：两个 exe 均正常启动/优雅退出。
 - 实机冒烟（需用户在有游戏时执行，见下）。
 
 **Architecture verification：**
 - `dotnet list src/OwHelper.Core reference` → 无项目引用（Core 是叶子）。
 - 两个 app 只引用 Core；无反向依赖。
-- 架构断言测试：`BgKeyProbe` 与 `OwHelper` 程序集中不存在任何 `DllImport`（38 项测试中的 2 项）。
+- 架构断言测试：`BgKeyProbe` 与 `OwHelper` 程序集中不存在任何 `DllImport`（35 项测试中的 2 项）。
 
 **有意行为变更（1 处）：** 连续 3 次脉冲消息发送失败时打印警告（修复静默失败），不自动停止。
 
