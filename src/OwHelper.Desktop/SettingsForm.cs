@@ -17,6 +17,14 @@ public sealed class SettingsForm : Form
         public override string ToString() => Label;
     }
 
+    internal sealed class ComboItem
+    {
+        public string Label { get; }
+        public string Value { get; }
+        public ComboItem(string label, string value) { Label = label; Value = value; }
+        public override string ToString() => Label;
+    }
+
     internal static void Populate(CheckedListBox list)
     {
         foreach ((string name, string label) in SettingsMapper.Presets)
@@ -58,12 +66,25 @@ public sealed class SettingsForm : Form
     readonly NumericUpDown hold = Numeric(10, 2000);
     readonly NumericUpDown focusWait = Numeric(0, 1000);
     readonly NumericUpDown jitter = Numeric(0, 50);
-    readonly ComboBox priority = Combo(new[] { "Normal", "BelowNormal", "AboveNormal", "Idle", "High" });
-    readonly CheckBox ecoQos = Check("EcoQoS 节能（部分电源方案不支持，会如实报告）");
-    readonly CheckBox skipForeground = Check("OW 在前台时跳过脉冲");
-    readonly CheckBox allowOffscreen = Check("允许窗口移出屏幕（m 键可用）");
-    readonly CheckBox keepOffscreen = Check("重连后保持移出屏幕");
-    readonly ComboBox logLevel = Combo(new[] { "Debug", "Information", "Warning", "Error" });
+    readonly ComboBox priority = Combo(new object[]
+    {
+        new ComboItem("后台优先（推荐）", "BelowNormal"),
+        new ComboItem("普通", "Normal"),
+        new ComboItem("略高于普通", "AboveNormal"),
+        new ComboItem("最低（省电优先）", "Idle"),
+        new ComboItem("高", "High"),
+    });
+    readonly CheckBox ecoQos = Check("后台省电模式（部分电脑不支持，会自动跳过）");
+    readonly CheckBox skipForeground = Check("我在玩游戏时自动暂停");
+    readonly CheckBox allowOffscreen = Check("可以隐藏游戏窗口");
+    readonly CheckBox keepOffscreen = Check("游戏重新打开后保持隐藏");
+    readonly ComboBox logLevel = Combo(new object[]
+    {
+        new ComboItem("普通（推荐）", "Information"),
+        new ComboItem("详细（排错用）", "Debug"),
+        new ComboItem("只记问题", "Warning"),
+        new ComboItem("只记错误", "Error"),
+    });
     readonly NumericUpDown retainDays = Numeric(1, 365);
 
     public SettingsForm(TrayController controller)
@@ -71,7 +92,7 @@ public sealed class SettingsForm : Form
         this.controller = controller;
         config = controller.Config;
 
-        Text = "OW Helper 设置";
+        Text = "OW 助手 · 更多设置";
         BackColor = Palette.Paper;
         ForeColor = Palette.Ink;
         Font = new Font("Segoe UI", 9f);
@@ -91,27 +112,27 @@ public sealed class SettingsForm : Form
             ColumnCount = 1,
             AutoScroll = true,
         };
-        AddSection(layout, "按键（可多选；OW 常用键位，含鼠标）");
+        AddSection(layout, "自动按哪些键（可多选）");
         AddRow(layout, keyList);
-        AddRow(layout, Field("自定义（逗号分隔，支持 mouse4 / f1 / up / numdivide 等）", customKeys));
-        AddSection(layout, "时序");
-        AddRow(layout, Pair("间隔（秒）", interval));
-        AddRow(layout, Pair("按住（毫秒）", hold));
-        AddRow(layout, Pair("focus 等待（毫秒）", focusWait));
-        AddRow(layout, Pair("抖动（%）", jitter));
-        AddSection(layout, "资源");
-        AddRow(layout, Pair("CPU 优先级", priority));
+        AddRow(layout, Field("也可以自己填（英文逗号隔开，例如 mouseleft、f1、up）", customKeys));
+        AddSection(layout, "按键节奏");
+        AddRow(layout, Pair("每隔多少秒按一次", interval));
+        AddRow(layout, Pair("每次按住多久（毫秒）", hold));
+        AddRow(layout, Pair("准备等待（毫秒，一般不用改）", focusWait));
+        AddRow(layout, Pair("间隔随机浮动（%，一般不用改）", jitter));
+        AddSection(layout, "后台运行方式");
+        AddRow(layout, Pair("后台优先级别", priority));
         AddRow(layout, ecoQos);
-        AddSection(layout, "窗口与行为");
+        AddSection(layout, "其他");
         AddRow(layout, skipForeground);
         AddRow(layout, allowOffscreen);
         AddRow(layout, keepOffscreen);
-        AddSection(layout, "日志");
-        AddRow(layout, Pair("级别", logLevel));
+        AddSection(layout, "运行记录");
+        AddRow(layout, Pair("记录详细程度", logLevel));
         AddRow(layout, Pair("保留天数", retainDays));
         AddRow(layout, new Label
         {
-            Text = "保存后：间隔 / 抖动 / 优先级 / 前台跳过 / 窗口选项立即生效；\n按键与按住、focus 时序在下次「开始」生效。",
+            Text = "保存后：节奏和后台选项立即生效；按键的变化会在下次「开始」时生效。",
             ForeColor = Palette.InkSecondary,
             AutoSize = true,
             Margin = new Padding(0, 6, 0, 0),
@@ -150,12 +171,12 @@ public sealed class SettingsForm : Form
         hold.Value = Clamp(source.Input.HoldMilliseconds, hold);
         focusWait.Value = Clamp(source.Input.FocusWaitMilliseconds, focusWait);
         jitter.Value = Clamp(source.Input.JitterPercent, jitter);
-        priority.SelectedItem = priority.Items.Contains(source.Resource.Priority) ? source.Resource.Priority : "BelowNormal";
+        SelectCombo(priority, source.Resource.Priority, "BelowNormal");
         ecoQos.Checked = source.Resource.EcoQoS;
         skipForeground.Checked = source.Input.SkipWhenTargetForeground;
         allowOffscreen.Checked = source.Window.AllowMoveOffscreen;
         keepOffscreen.Checked = source.Window.KeepOffscreenAcrossRestart;
-        logLevel.SelectedItem = logLevel.Items.Contains(source.Logging.Level) ? source.Logging.Level : "Information";
+        SelectCombo(logLevel, source.Logging.Level, "Information");
         retainDays.Value = Clamp(source.Logging.RetainDays, retainDays);
     }
 
@@ -165,7 +186,7 @@ public sealed class SettingsForm : Form
         List<string> keys = SettingsMapper.MergeKeys(selectedPresets, customKeys.Text);
         if (keys.Count == 0)
         {
-            MessageBox.Show(this, "至少选择一个按键。", "OW Helper", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show(this, "至少选择一个按键。", "OW 助手", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
@@ -175,11 +196,11 @@ public sealed class SettingsForm : Form
         config.Input.FocusWaitMilliseconds = (int)focusWait.Value;
         config.Input.JitterPercent = (int)jitter.Value;
         config.Input.SkipWhenTargetForeground = skipForeground.Checked;
-        config.Resource.Priority = priority.SelectedItem?.ToString() ?? "BelowNormal";
+        config.Resource.Priority = (priority.SelectedItem as ComboItem)?.Value ?? "BelowNormal";
         config.Resource.EcoQoS = ecoQos.Checked;
         config.Window.AllowMoveOffscreen = allowOffscreen.Checked;
         config.Window.KeepOffscreenAcrossRestart = keepOffscreen.Checked;
-        config.Logging.Level = logLevel.SelectedItem?.ToString() ?? "Information";
+        config.Logging.Level = (logLevel.SelectedItem as ComboItem)?.Value ?? "Information";
         config.Logging.RetainDays = (int)retainDays.Value;
 
         List<string> problems = config.Validate();
@@ -187,7 +208,7 @@ public sealed class SettingsForm : Form
         string message = problems.Count == 0
             ? summary
             : string.Join(Environment.NewLine, problems) + Environment.NewLine + Environment.NewLine + summary;
-        MessageBox.Show(this, message, "OW Helper 设置", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        MessageBox.Show(this, message, "OW 助手 · 更多设置", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
         DialogResult = DialogResult.OK;
         Close();
@@ -206,7 +227,25 @@ public sealed class SettingsForm : Form
         BorderStyle = BorderStyle.FixedSingle,
     };
 
-    static ComboBox Combo(string[] items)
+    static void SelectCombo(ComboBox combo, string value, string fallback)
+    {
+        object? match = FindComboItem(combo, value) ?? FindComboItem(combo, fallback);
+        if (match != null) combo.SelectedItem = match;
+    }
+
+    static object? FindComboItem(ComboBox combo, string value)
+    {
+        foreach (object item in combo.Items)
+        {
+            if (item is ComboItem comboItem && string.Equals(comboItem.Value, value, StringComparison.OrdinalIgnoreCase))
+            {
+                return item;
+            }
+        }
+        return null;
+    }
+
+    static ComboBox Combo(object[] items)
     {
         var combo = new ComboBox
         {
@@ -297,4 +336,6 @@ public sealed class SettingsForm : Form
         return panel;
     }
 }
+
+
 

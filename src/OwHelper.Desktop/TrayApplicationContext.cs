@@ -20,6 +20,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     readonly ToolStripMenuItem offscreenItem;
     MainForm? mainForm;
     Color lastIconColor = Color.Empty;
+    bool minimizeHintShown;
 
     public TrayApplicationContext()
     {
@@ -161,6 +162,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         if (mainForm == null || mainForm.IsDisposed)
         {
             mainForm = new MainForm(controller);
+            mainForm.HiddenToTray += OnHiddenToTray;
             MainForm = mainForm;
         }
         mainForm.Show();
@@ -170,6 +172,15 @@ internal sealed class TrayApplicationContext : ApplicationContext
         }
         mainForm.BringToFront();
         mainForm.RefreshStatus();
+    }
+
+    void OnHiddenToTray()
+    {
+        if (minimizeHintShown) return;
+        minimizeHintShown = true;
+        notifyIcon.BalloonTipTitle = "OW 助手还在后台运行";
+        notifyIcon.BalloonTipText = "挂机不会中断。想停止或打开窗口，双击（或右键）右下角的托盘图标即可。";
+        notifyIcon.ShowBalloonTip(6000);
     }
 
     void ShowSettings()
