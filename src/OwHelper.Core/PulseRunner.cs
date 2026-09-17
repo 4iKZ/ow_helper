@@ -36,9 +36,25 @@ public static class PulseRunner
         if (recipe.SendActivate) messages.Add(Post(hwnd, "ACTIVATE(1)", Native.WM_ACTIVATE, new IntPtr(Native.WA_ACTIVE), IntPtr.Zero));
         if (recipe.SendFocus) messages.Add(Post(hwnd, "SETFOCUS", Native.WM_SETFOCUS, IntPtr.Zero, IntPtr.Zero));
         if (recipe.FocusWaitMs > 0) Thread.Sleep(recipe.FocusWaitMs);
-        foreach (int vk in recipe.Keys) messages.Add(Key(hwnd, vk, down: true));
+
+        int mouseX = 0;
+        int mouseY = 0;
+        bool hasMouse = recipe.Keys.Any(MouseInput.IsMouseVirtualKey);
+        if (hasMouse)
+        {
+            MouseInput.TryGetClientCenter(hwnd, out mouseX, out mouseY);
+            bool moved = MouseInput.SendMove(hwnd, mouseX, mouseY);
+            messages.Add(new MessageOutcome
+            {
+                Name = "MOUSEMOVE",
+                Ok = moved,
+                Error = moved ? 0 : Marshal.GetLastWin32Error(),
+            });
+        }
+
+        foreach (int vk in recipe.Keys) messages.Add(Key(hwnd, vk, down: true, mouseX, mouseY));
         Thread.Sleep(recipe.HoldMs);
-        for (int i = recipe.Keys.Count - 1; i >= 0; i--) messages.Add(Key(hwnd, recipe.Keys[i], down: false));
+        for (int i = recipe.Keys.Count - 1; i >= 0; i--) messages.Add(Key(hwnd, recipe.Keys[i], down: false, mouseX, mouseY));
         if (recipe.SendFocus) messages.Add(Post(hwnd, "KILLFOCUS", Native.WM_KILLFOCUS, IntPtr.Zero, IntPtr.Zero));
         if (recipe.SendActivate) messages.Add(Post(hwnd, "ACTIVATE(0)", Native.WM_ACTIVATE, new IntPtr(Native.WA_INACTIVE), IntPtr.Zero));
         if (recipe.SendActivateApp) messages.Add(Post(hwnd, "ACTIVATEAPP(0)", Native.WM_ACTIVATEAPP, IntPtr.Zero, IntPtr.Zero));
@@ -51,8 +67,19 @@ public static class PulseRunner
         return new MessageOutcome { Name = name, Ok = ok, Error = ok ? 0 : Marshal.GetLastWin32Error() };
     }
 
-    static MessageOutcome Key(IntPtr hwnd, int vk, bool down)
+    static MessageOutcome Key(IntPtr hwnd, int vk, bool down, int mouseX, int mouseY)
     {
+        if (MouseInput.IsMouseVirtualKey(vk))
+        {
+            bool sent = MouseInput.SendButton(hwnd, vk, down, mouseX, mouseY);
+            return new MessageOutcome
+            {
+                Name = down ? $"MOUSEDOWN(0x{vk:X2})" : $"MOUSEUP(0x{vk:X2})",
+                Ok = sent,
+                Error = sent ? 0 : Marshal.GetLastWin32Error(),
+            };
+        }
+
         uint scan = Native.MapVirtualKey((uint)vk, Native.MAPVK_VK_TO_VSC);
         long bits = 1L | ((long)scan << 16);
         if (IsExtendedKey(vk)) bits |= 1L << 24;

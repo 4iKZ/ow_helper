@@ -93,7 +93,7 @@ public sealed class AppConfig
         }
 
         config ??= new AppConfig();
-        config.Validate(problems);
+        problems = config.Validate();
         return config;
     }
 
@@ -130,7 +130,14 @@ public sealed class AppConfig
     public bool GpuGuideEnabled
         => !string.Equals(Resource.GpuPolicyMode, "Disabled", StringComparison.OrdinalIgnoreCase);
 
-    void Validate(List<string> problems)
+    public List<string> Validate()
+    {
+        var problems = new List<string>();
+        ValidateInto(problems);
+        return problems;
+    }
+
+    void ValidateInto(List<string> problems)
     {
         if (Input.IntervalSeconds < 5 || Input.IntervalSeconds > 300)
         {

@@ -17,6 +17,10 @@
 
 用户开 OW 训练场 → 探针输入 `l` / `n` / `r` / `m` → 观察开火/动作 → 结论写入本文档。
 
+**结论（2026-09-17 实测）：通过。** LMB / RMB / MMB 在 OW 后台（终端前台）下均产生实际动作，
+`n`（不发 MOUSEMOVE）与 `l` 表现一致；证明 OW 的鼠标按钮输入同样走窗口消息路径，
+后台合成点击在项目边界内可行。后续 S2/S3 继续。
+
 ## S2 — 鼠标并入脉冲引擎
 
 - `PulseRunner` 分流：`Keys` 中的鼠标 VK → `MOUSEMOVE + BUTTON DOWN/UP`（保持 SETFOCUS/KILLFOCUS 契约与消息结果记录）。
