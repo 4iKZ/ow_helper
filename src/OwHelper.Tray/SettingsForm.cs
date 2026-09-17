@@ -9,12 +9,29 @@ namespace OwHelper.Tray;
 
 public sealed class SettingsForm : Form
 {
-    sealed class KeyItem
+    internal sealed class KeyItem
     {
         public string Name { get; }
         public string Label { get; }
         public KeyItem(string name, string label) { Name = name; Label = label; }
         public override string ToString() => Label;
+    }
+
+    internal static void Populate(CheckedListBox list)
+    {
+        foreach ((string name, string label) in SettingsMapper.Presets)
+        {
+            list.Items.Add(new KeyItem(name, label));
+        }
+    }
+
+    internal static void ApplySelection(CheckedListBox list, IEnumerable<string> selectedKeys)
+    {
+        for (int i = 0; i < list.Items.Count; i++)
+        {
+            var item = (KeyItem)list.Items[i];
+            list.SetItemChecked(i, selectedKeys.Any(k => string.Equals(k, item.Name, StringComparison.OrdinalIgnoreCase)));
+        }
     }
 
     readonly TrayController controller;
@@ -65,10 +82,7 @@ public sealed class SettingsForm : Form
         ShowInTaskbar = false;
         StartPosition = FormStartPosition.CenterScreen;
 
-        foreach ((string name, string label) in SettingsMapper.Presets)
-        {
-            keyList.Items.Add(new KeyItem(name, label));
-        }
+        Populate(keyList);
 
         var layout = new TableLayoutPanel
         {
@@ -130,11 +144,7 @@ public sealed class SettingsForm : Form
 
     void LoadFromConfig(AppConfig source)
     {
-        foreach (KeyItem item in keyList.Items)
-        {
-            bool selected = source.Input.Keys.Any(k => string.Equals(k, item.Name, StringComparison.OrdinalIgnoreCase));
-            keyList.SetItemChecked(keyList.Items.IndexOf(item), selected);
-        }
+        ApplySelection(keyList, source.Input.Keys);
         customKeys.Text = SettingsMapper.CustomKeysText(source.Input.Keys);
         interval.Value = Clamp(source.Input.IntervalSeconds, interval);
         hold.Value = Clamp(source.Input.HoldMilliseconds, hold);

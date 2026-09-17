@@ -17,4 +17,8 @@
     <ProjectReference Include="..\OwHelper.Core\OwHelper.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="OwHelper.App.Tests" />
+  </ItemGroup>
+
 </Project>
