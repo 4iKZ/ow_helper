@@ -37,10 +37,19 @@ public static class RuntimeRecovery
         }
 
         WindowPlacementResult result = WindowMover.MoveTo((IntPtr)state.Hwnd, state.Pid, state.Left, state.Top);
+        if (state.TaskbarHidden)
+        {
+            WindowStyleResult style = WindowStyle.RestoreStyle((IntPtr)state.Hwnd, state.Pid, state.OriginalExStyle);
+            if (!style.Success)
+            {
+                output($"  任务栏图标恢复失败: {style.Message}");
+            }
+        }
         output(result.Success ? "  上次移出屏幕的窗口已恢复" : $"  恢复失败: {result.Message}");
         if (result.Success) store.Clear();
         process?.Dispose();
         return result.Success;
     }
 }
+
 

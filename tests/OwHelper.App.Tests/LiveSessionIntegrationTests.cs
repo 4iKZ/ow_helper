@@ -91,14 +91,17 @@ public class LiveSessionIntegrationTests
 
         GameWindow target = session.Target!;
         var original = WindowProbe.GetRect(target.Handle);
+        long originalExStyle = WindowProbe.GetExStyle(target.Handle);
 
         await session.ToggleOffscreenAsync();
         Assert.True(WindowProbe.GetRect(target.Handle).Left == -10000, "not offscreen" + Dump(log));
+        Assert.True((WindowProbe.GetExStyle(target.Handle) & 0x00000080L) != 0, "not hidden from taskbar" + Dump(log));
         Assert.NotNull(store.Load());
 
         await session.ReattachAsync();
 
         Assert.True(await WaitFor(() => WindowProbe.GetRect(target.Handle).Left == original.Left, 15000), "not restored" + Dump(log));
+        Assert.True(await WaitFor(() => WindowProbe.GetExStyle(target.Handle) == originalExStyle, 15000), "taskbar style not restored" + Dump(log));
         Assert.True(await WaitFor(() => session.State == SessionState.Running, 15000), "not running" + Dump(log));
         Assert.Null(store.Load());
     }

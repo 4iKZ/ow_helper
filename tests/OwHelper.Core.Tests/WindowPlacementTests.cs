@@ -72,6 +72,47 @@ public class WindowPlacementTests
     }
 
     [Fact]
+    public void BossKey_HidesFromTaskbarThenRestoresEverything()
+    {
+        using var window = new FakeWindow();
+        using var self = Process.GetCurrentProcess();
+        long originalExStyle = WindowProbe.GetExStyle(window.Handle);
+        var original = window.GetRect();
+        var placement = new WindowPlacement(window.Handle, self.Id);
+
+        var move = placement.MoveOffscreen(hideFromTaskbar: true);
+
+        Assert.True(move.Success);
+        Assert.True(placement.IsOffscreen);
+        Assert.True(placement.TaskbarHidden);
+        Assert.Equal(-10000, window.GetRect().Left);
+        Assert.True((WindowProbe.GetExStyle(window.Handle) & 0x00000080L) != 0);
+
+        var restore = placement.Restore();
+
+        Assert.True(restore.Success);
+        Assert.False(placement.TaskbarHidden);
+        Assert.False(placement.IsOffscreen);
+        Assert.Equal(originalExStyle, WindowProbe.GetExStyle(window.Handle));
+        Assert.Equal(original.Left, window.GetRect().Left);
+    }
+
+    [Fact]
+    public void MoveOffscreen_WithoutBossKey_KeepsTaskbarStyle()
+    {
+        using var window = new FakeWindow();
+        using var self = Process.GetCurrentProcess();
+        long originalExStyle = WindowProbe.GetExStyle(window.Handle);
+        var placement = new WindowPlacement(window.Handle, self.Id);
+
+        Assert.True(placement.MoveOffscreen(hideFromTaskbar: false).Success);
+
+        Assert.False(placement.TaskbarHidden);
+        Assert.Equal(originalExStyle, WindowProbe.GetExStyle(window.Handle));
+        Assert.Equal(-10000, window.GetRect().Left);
+    }
+
+    [Fact]
     public void Restore_WithoutAnyMove_IsNoOp()
     {
         using var window = new FakeWindow();

@@ -22,6 +22,7 @@ public sealed class WindowPlacement
     readonly IntPtr hwnd;
     readonly int pid;
     Native.RECT saved;
+    long originalExStyle;
 
     public WindowPlacement(IntPtr hwnd, int pid)
     {
@@ -37,6 +38,10 @@ public sealed class WindowPlacement
 
     public bool IsOffscreen => State == PlacementState.Offscreen;
 
+    public bool TaskbarHidden { get; private set; }
+
+    public long OriginalExStyle => originalExStyle;
+
     public bool TryGetSavedPosition(out int left, out int top)
     {
         left = saved.Left;
@@ -44,7 +49,7 @@ public sealed class WindowPlacement
         return State is PlacementState.Captured or PlacementState.Offscreen;
     }
 
-    public WindowPlacementResult MoveOffscreen()
+    public WindowPlacementResult MoveOffscreen(bool hideFromTaskbar = false)
     {
         if (!Native.IsWindow(hwnd))
         {
@@ -60,12 +65,33 @@ public sealed class WindowPlacement
             int error = Marshal.GetLastWin32Error();
             return new WindowPlacementResult(false, "GetWindowRect failed", error);
         }
+
+        if (hideFromTaskbar)
+        {
+            if (WindowStyle.IsMinimized(hwnd))
+            {
+                WindowStyle.EnsureShown(hwnd);
+            }
+            WindowStyleResult style = WindowStyle.HideFromTaskbar(hwnd, pid);
+            if (!style.Success)
+            {
+                return new WindowPlacementResult(false, style.Message, style.NativeError);
+            }
+            originalExStyle = style.OriginalExStyle;
+            TaskbarHidden = true;
+        }
+
         saved = rect;
         State = PlacementState.Captured;
 
         WindowPlacementResult moved = WindowMover.MoveTo(hwnd, pid, OffscreenX, OffscreenY);
         if (!moved.Success)
         {
+            if (TaskbarHidden)
+            {
+                WindowStyle.RestoreStyle(hwnd, pid, originalExStyle);
+                TaskbarHidden = false;
+            }
             return moved;
         }
         State = PlacementState.Offscreen;
@@ -74,7 +100,7 @@ public sealed class WindowPlacement
 
     public WindowPlacementResult Restore()
     {
-        if (State == PlacementState.None)
+        if (State == PlacementState.None && !TaskbarHidden)
         {
             return new WindowPlacementResult(true, "nothing to restore", null);
         }
@@ -89,12 +115,30 @@ public sealed class WindowPlacement
             State = PlacementState.Stale;
             return new WindowPlacementResult(false, $"hwnd belongs to pid {owner}; refused to move; snapshot discarded", null);
         }
+
+        if (WindowStyle.IsMinimized(hwnd))
+        {
+            WindowStyle.EnsureShown(hwnd);
+        }
+
         WindowPlacementResult moved = WindowMover.MoveTo(hwnd, pid, saved.Left, saved.Top);
         if (!moved.Success)
         {
             State = PlacementState.RestoreFailed;
             return moved;
         }
+
+        if (TaskbarHidden)
+        {
+            WindowStyleResult style = WindowStyle.RestoreStyle(hwnd, pid, originalExStyle);
+            TaskbarHidden = false;
+            if (!style.Success)
+            {
+                State = PlacementState.RestoreFailed;
+                return new WindowPlacementResult(false, style.Message, style.NativeError);
+            }
+        }
+
         State = PlacementState.None;
         return new WindowPlacementResult(true, "restored", null);
     }

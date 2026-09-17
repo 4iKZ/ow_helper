@@ -18,13 +18,17 @@ public sealed class WindowPlacementController : IWindowPlacementController
 
     public bool IsOffscreen => current?.IsOffscreen ?? false;
 
-    public WindowPlacementResult MoveOffscreen(IntPtr hwnd, int pid)
+    public bool TaskbarHidden => current?.TaskbarHidden ?? false;
+
+    public long OriginalExStyle => current?.OriginalExStyle ?? 0;
+
+    public WindowPlacementResult MoveOffscreen(IntPtr hwnd, int pid, bool hideFromTaskbar)
     {
         if (current == null || current.Handle != hwnd || current.Pid != pid)
         {
             current = new WindowPlacement(hwnd, pid);
         }
-        return current.MoveOffscreen();
+        return current.MoveOffscreen(hideFromTaskbar);
     }
 
     public WindowPlacementResult Restore()

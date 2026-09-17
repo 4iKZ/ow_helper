@@ -15,7 +15,7 @@ public class RuntimeStateTests
         => Path.Combine(Path.GetTempPath(), "OwHelperTests", Guid.NewGuid().ToString("N"), "runtime-state.json");
 
     static RuntimeState MakeState(FakeWindow window, Process self, int left, int top)
-        => new RuntimeState(1, self.Id, self.StartTime.ToUniversalTime(), window.Handle.ToInt64(), left, top, true);
+        => new RuntimeState(1, self.Id, self.StartTime.ToUniversalTime(), window.Handle.ToInt64(), left, top, true, false, 0);
 
     [Fact]
     public void Store_SaveLoadClear_RoundTrips()
@@ -24,7 +24,7 @@ public class RuntimeStateTests
         var store = new RuntimeStateStore(path);
         Assert.Null(store.Load());
 
-        store.Save(new RuntimeState(1, 42, DateTime.UtcNow, 0x5A81CL, 100, 200, true));
+        store.Save(new RuntimeState(1, 42, DateTime.UtcNow, 0x5A81CL, 100, 200, true, false, 0));
 
         var loaded = store.Load();
         Assert.NotNull(loaded);
@@ -89,7 +89,7 @@ public class RuntimeStateTests
         using var self = Process.GetCurrentProcess();
         var store = new RuntimeStateStore(TempStatePath());
         WindowMover.MoveTo(window.Handle, self.Id, -10000, -10000);
-        store.Save(new RuntimeState(1, self.Id + 1, null, window.Handle.ToInt64(), 111, 222, true));
+        store.Save(new RuntimeState(1, self.Id + 1, null, window.Handle.ToInt64(), 111, 222, true, false, 0));
         var logs = new List<string>();
 
         bool recovered = RuntimeRecovery.TryRecover(store, logs.Add, _ => true);
@@ -111,4 +111,5 @@ public class RuntimeStateTests
         Assert.Empty(logs);
     }
 }
+
 

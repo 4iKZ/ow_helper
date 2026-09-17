@@ -212,7 +212,7 @@ public sealed class Session : IAsyncDisposable
             }
             else
             {
-                WindowPlacementResult result = placement.MoveOffscreen(current.Handle, (int)current.Pid);
+                WindowPlacementResult result = placement.MoveOffscreen(current.Handle, (int)current.Pid, hideFromTaskbar: true);
                 output(result.Success ? "  OW 窗口已移出屏幕（按 m 还原）" : $"  移出屏幕失败: {result.Message}{ErrorCode(result.NativeError)}");
                 LogPlacement("WINDOW_MOVE_OFFSCREEN", result, current);
                 if (result.Success) PersistPlacement(current);
@@ -249,7 +249,9 @@ public sealed class Session : IAsyncDisposable
             Hwnd: window.Handle.ToInt64(),
             Left: left,
             Top: top,
-            OffscreenApplied: true));
+            OffscreenApplied: true,
+            TaskbarHidden: placement.TaskbarHidden,
+            OriginalExStyle: placement.OriginalExStyle));
     }
 
     void ClearPlacementState() => stateStore?.Clear();
@@ -404,7 +406,7 @@ public sealed class Session : IAsyncDisposable
                     State = SessionState.Running;
                     if (wasOffscreen && KeepOffscreenAcrossRestart && AllowMoveOffscreen)
                     {
-                        WindowPlacementResult moved = placement.MoveOffscreen(found.Handle, (int)found.Pid);
+                        WindowPlacementResult moved = placement.MoveOffscreen(found.Handle, (int)found.Pid, hideFromTaskbar: true);
                         output(moved.Success ? "  已按配置将新窗口移出屏幕" : $"  新窗口移出屏幕失败: {moved.Message}{ErrorCode(moved.NativeError)}");
                         LogPlacement("WINDOW_MOVE_OFFSCREEN", moved, found);
                         if (moved.Success) PersistPlacement(found);
@@ -510,5 +512,6 @@ public sealed class Session : IAsyncDisposable
     static string ErrorCode(int? nativeError)
         => nativeError is int code ? $" (Win32={code})" : "";
 }
+
 
 

@@ -243,12 +243,18 @@ public sealed class MainForm : Form
         };
         for (int i = 0; i < 3; i++) right.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
-        bossKeyButton.Text = "隐藏游戏窗口";
+        bossKeyButton.Text = "老板键";
         StyleSideButton(bossKeyButton);
         bossKeyButton.Click += async (s, e) =>
         {
+            bool wasHidden = controller.Session.IsOffscreen;
             await controller.ToggleOffscreenAsync();
             RefreshStatus();
+            if (!wasHidden && controller.Session.IsOffscreen)
+            {
+                Hide();
+                BossKeyUsed?.Invoke();
+            }
         };
 
         settingsButton.Text = "更多设置…";

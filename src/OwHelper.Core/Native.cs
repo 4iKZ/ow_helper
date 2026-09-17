@@ -32,7 +32,15 @@ internal static class Native
     internal const uint MAPVK_VK_TO_VSC = 0;
     internal const uint SMTO_ABORTIFHUNG = 0x0002;
     internal const uint SWP_NOSIZE = 0x0001;
+    internal const uint SWP_NOMOVE = 0x0002;
     internal const uint SWP_NOZORDER = 0x0004;
+    internal const uint SWP_NOACTIVATE = 0x0010;
+    internal const uint SWP_FRAMECHANGED = 0x0020;
+    internal const int GWL_EXSTYLE = -20;
+    internal const long WS_EX_TOOLWINDOW = 0x00000080L;
+    internal const long WS_EX_APPWINDOW = 0x00040000L;
+    internal const int SW_SHOWNOACTIVATE = 4;
+    internal const int SW_RESTORE = 9;
     internal const uint PROCESS_POWER_THROTTLING_CURRENT_VERSION = 1;
     internal const uint PROCESS_POWER_THROTTLING_EXECUTION_SPEED = 0x1;
 
@@ -96,6 +104,36 @@ internal static class Native
 
     [DllImport("user32.dll")]
     internal static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    internal static extern bool ShowWindow(IntPtr hWnd, int command);
+
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW", SetLastError = true)]
+    static extern IntPtr GetWindowLongPtr64(IntPtr hWnd, int index);
+
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongW", SetLastError = true)]
+    static extern int GetWindowLong32(IntPtr hWnd, int index);
+
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW", SetLastError = true)]
+    static extern IntPtr SetWindowLongPtr64(IntPtr hWnd, int index, IntPtr value);
+
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongW", SetLastError = true)]
+    static extern int SetWindowLong32(IntPtr hWnd, int index, int value);
+
+    internal static long GetWindowLongPtr(IntPtr hWnd, int index)
+        => IntPtr.Size == 8 ? GetWindowLongPtr64(hWnd, index).ToInt64() : GetWindowLong32(hWnd, index);
+
+    internal static void SetWindowLongPtr(IntPtr hWnd, int index, long value)
+    {
+        if (IntPtr.Size == 8)
+        {
+            SetWindowLongPtr64(hWnd, index, new IntPtr(value));
+        }
+        else
+        {
+            SetWindowLong32(hWnd, index, (int)value);
+        }
+    }
 
     [DllImport("kernel32.dll", SetLastError = true)]
     internal static extern bool SetProcessInformation(IntPtr hProcess, ProcessInformationClass infoClass, ref PROCESS_POWER_THROTTLING_STATE info, uint infoSize);

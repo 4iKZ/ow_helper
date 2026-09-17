@@ -75,4 +75,24 @@ public static class WindowProbe
 
     [System.Runtime.InteropServices.DllImport("user32.dll")]
     static extern bool GetClientRect(IntPtr hWnd, out RECT rect);
+
+    [System.Runtime.InteropServices.DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW", SetLastError = true)]
+    static extern IntPtr GetWindowLongPtr64(IntPtr hWnd, int index);
+
+    [System.Runtime.InteropServices.DllImport("user32.dll", EntryPoint = "GetWindowLongW", SetLastError = true)]
+    static extern int GetWindowLong32(IntPtr hWnd, int index);
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    static extern bool ShowWindow(IntPtr hWnd, int command);
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    static extern bool IsIconic(IntPtr hWnd);
+
+    public static long GetExStyle(IntPtr hwnd)
+        => IntPtr.Size == 8 ? GetWindowLongPtr64(hwnd, -20).ToInt64() : GetWindowLong32(hwnd, -20);
+
+    public static void Minimize(IntPtr hwnd) => ShowWindow(hwnd, 6);
+
+    public static bool IsMinimized(IntPtr hwnd) => IsIconic(hwnd);
 }
+

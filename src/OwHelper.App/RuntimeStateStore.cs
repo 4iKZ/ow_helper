@@ -11,7 +11,9 @@ public sealed record RuntimeState(
     long Hwnd,
     int Left,
     int Top,
-    bool OffscreenApplied);
+    bool OffscreenApplied,
+    bool TaskbarHidden,
+    long OriginalExStyle);
 
 public sealed class RuntimeStateStore
 {
@@ -66,4 +68,5 @@ public sealed class RuntimeStateStore
         catch { }
     }
 }
+
 

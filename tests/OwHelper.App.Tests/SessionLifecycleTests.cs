@@ -65,11 +65,14 @@ public class SessionLifecycleTests
         public int RestoreCalls;
 
         public bool IsOffscreen { get; private set; }
+        public bool TaskbarHidden { get; private set; }
+        public long OriginalExStyle => 0;
 
-        public WindowPlacementResult MoveOffscreen(IntPtr hwnd, int pid)
+        public WindowPlacementResult MoveOffscreen(IntPtr hwnd, int pid, bool hideFromTaskbar)
         {
             MoveCalls++;
             IsOffscreen = true;
+            TaskbarHidden = hideFromTaskbar;
             return new WindowPlacementResult(true, "moved", null);
         }
 
@@ -295,6 +298,7 @@ public class SessionLifecycleTests
         return condition();
     }
 }
+
 
 
 
