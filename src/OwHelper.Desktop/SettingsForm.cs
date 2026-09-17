@@ -76,8 +76,8 @@ public sealed class SettingsForm : Form
     });
     readonly CheckBox ecoQos = Check("后台省电模式（部分电脑不支持，会自动跳过）");
     readonly CheckBox skipForeground = Check("我在玩游戏时自动暂停");
-    readonly CheckBox allowOffscreen = Check("可以隐藏游戏窗口");
-    readonly CheckBox keepOffscreen = Check("游戏重新打开后保持隐藏");
+    readonly CheckBox allowOffscreen = Check("启用老板键（隐藏窗口并移出任务栏）");
+    readonly CheckBox keepOffscreen = Check("游戏重新打开后保持老板键状态");
     readonly ComboBox logLevel = Combo(new object[]
     {
         new ComboItem("普通（推荐）", "Information"),
@@ -336,6 +336,7 @@ public sealed class SettingsForm : Form
         return panel;
     }
 }
+
 
 
 

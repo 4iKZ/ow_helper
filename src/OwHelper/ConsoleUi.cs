@@ -152,3 +152,4 @@ internal sealed class ConsoleUi
     static string VersionText()
         => typeof(ConsoleUi).Assembly.GetName().Version?.ToString(3) ?? "dev";
 }
+
