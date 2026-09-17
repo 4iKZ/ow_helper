@@ -24,6 +24,33 @@ public sealed class TrayController
 
     public Session Session => session;
 
+    public AppConfig Config => config;
+
+    public async Task<string> ApplySettingsAsync(AppConfig updated)
+    {
+        session.IntervalSec = updated.Input.IntervalSeconds;
+        session.JitterPercent = updated.Input.JitterPercent;
+        session.Policy = updated.BuildPolicy();
+        session.SkipWhenForeground = updated.Input.SkipWhenTargetForeground;
+        session.AllowMoveOffscreen = updated.Window.AllowMoveOffscreen;
+        session.KeepOffscreenAcrossRestart = updated.Window.KeepOffscreenAcrossRestart;
+        session.UpdateRecipe(updated.BuildRecipe());
+        updated.Save(AppConfig.DefaultPath);
+        log.Write(new LogEntry(
+            DateTimeOffset.Now,
+            LogLevel.Information,
+            "CONFIG_APPLIED",
+            Message: $"keys={string.Join(",", updated.Input.Keys)}; interval={updated.Input.IntervalSeconds}"));
+
+        if (!session.IsRunning) return "设置已保存。按键与时序将在下次「开始」生效。";
+
+        ResourceApplyResult? applied = await session.ReapplyPolicyAsync();
+        if (applied == null) return "设置已保存。按键与时序将在下次「开始」生效。";
+
+        string policy = $"{applied.Priority.Name}={(applied.Priority.Success ? "ok" : applied.Priority.Message)}; {applied.Power.Name}={(applied.Power.Success ? "ok" : applied.Power.Message)}";
+        return $"设置已保存；资源策略已重新应用（{policy}）。按键与时序将在下次「开始」生效。";
+    }
+
     public TrayStatus Snapshot()
     {
         GameWindow? target = session.Target;

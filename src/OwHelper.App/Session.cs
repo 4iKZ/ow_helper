@@ -21,7 +21,7 @@ public sealed class Session : IAsyncDisposable
     readonly Action<string> output;
     readonly AppLog? log;
     readonly RuntimeStateStore? stateStore;
-    readonly PulseRecipe recipe;
+    PulseRecipe recipe;
 
     GameWindow? target;
     IResourceGovernor? governor;
@@ -65,6 +65,7 @@ public sealed class Session : IAsyncDisposable
     public bool AllowMoveOffscreen { get; set; } = true;
     public bool KeepOffscreenAcrossRestart { get; set; }
     public GameWindow? Target => target;
+    public PulseRecipe Recipe => recipe;
     public int PulseCount => pulseCount;
     public DateTimeOffset? LastPulseAt { get; private set; }
     public bool IsOffscreen => placement.IsOffscreen;
@@ -77,6 +78,26 @@ public sealed class Session : IAsyncDisposable
         {
             return notices.Count > 0 ? notices.Dequeue() : null;
         }
+    }
+
+    public void UpdateRecipe(PulseRecipe updated) => recipe = updated;
+
+    public async Task<ResourceApplyResult?> ReapplyPolicyAsync()
+    {
+        await gate.WaitAsync();
+        try
+        {
+            if (!IsRunning || governor == null) return null;
+            ResourceApplyResult applied = governor.Apply(Policy);
+            LastResourceApplyPartial = !applied.Success;
+            LogResourceApply(applied);
+            if (LastResourceApplyPartial)
+            {
+                Notify($"资源策略部分失败：{applied.Priority.Message} / {applied.Power.Message}");
+            }
+            return applied;
+        }
+        finally { gate.Release(); }
     }
 
     void Notify(string message)

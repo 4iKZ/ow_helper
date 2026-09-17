@@ -19,6 +19,7 @@ public sealed class StatusForm : Form
     readonly Button toggleButton = ActionButton();
     readonly Button offscreenButton = ActionButton();
     readonly Button logsButton = ActionButton();
+    readonly Button settingsButton = ActionButton();
     bool exiting;
 
     public StatusForm(TrayController controller)
@@ -68,6 +69,13 @@ public sealed class StatusForm : Form
         };
         logsButton.Text = "打开日志";
         logsButton.Click += (s, e) => controller.OpenLogFolder();
+        settingsButton.Text = "设置";
+        settingsButton.Click += (s, e) =>
+        {
+            using var form = new SettingsForm(controller);
+            form.ShowDialog();
+            RefreshStatus(controller.Snapshot());
+        };
 
         var buttons = new FlowLayoutPanel
         {
@@ -80,6 +88,7 @@ public sealed class StatusForm : Form
         buttons.Controls.Add(toggleButton);
         buttons.Controls.Add(offscreenButton);
         buttons.Controls.Add(logsButton);
+        buttons.Controls.Add(settingsButton);
 
         Controls.Add(grid);
         Controls.Add(buttons);

@@ -76,6 +76,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             Refresh();
         });
         var statusWindowItem = new ToolStripMenuItem("打开状态窗口", null, (s, e) => ShowStatusWindow());
+        var settingsItem = new ToolStripMenuItem("设置…", null, (s, e) => ShowSettings());
         var logsItem = new ToolStripMenuItem("打开日志文件夹", null, (s, e) => controller.OpenLogFolder());
         var configItem = new ToolStripMenuItem("打开配置文件", null, (s, e) => controller.OpenConfigFile());
         var exitItem = new ToolStripMenuItem("退出（恢复资源与窗口）", null, async (s, e) => await ExitAsync());
@@ -89,6 +90,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             offscreenItem,
             reattachItem,
             statusWindowItem,
+            settingsItem,
             new ToolStripSeparator(),
             logsItem,
             configItem,
@@ -158,6 +160,13 @@ internal sealed class TrayApplicationContext : ApplicationContext
         statusForm.RefreshStatus(controller.Snapshot());
         statusForm.Show();
         statusForm.BringToFront();
+    }
+
+    void ShowSettings()
+    {
+        using var form = new SettingsForm(controller);
+        form.ShowDialog();
+        Refresh();
     }
 
     async Task ExitAsync()

@@ -93,7 +93,7 @@ public sealed class AppConfig
         }
 
         config ??= new AppConfig();
-        problems = config.Validate();
+        problems.AddRange(config.Validate());
         return config;
     }
 
