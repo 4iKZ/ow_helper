@@ -17,7 +17,7 @@ public sealed class GameWindow
     public int Depth { get; private set; }
     public int Width { get; private set; }
     public int Height { get; private set; }
-    public Process Process { get; private set; }
+    public Process Process { get; private set; } = null!;
 
     GameWindow() { }
 
@@ -32,9 +32,9 @@ public sealed class GameWindow
         return ok != IntPtr.Zero;
     }
 
-    public static GameWindow Find(string processName)
+    public static GameWindow? Find(string processName)
     {
-        Process process = FirstProcess(processName);
+        Process? process = FirstProcess(processName);
         if (process == null) return null;
         return Enumerate((uint)process.Id, false, process)
             .OrderByDescending(w => (long)w.Width * w.Height)
@@ -43,12 +43,12 @@ public sealed class GameWindow
 
     public static List<GameWindow> EnumerateAll(string processName)
     {
-        Process process = FirstProcess(processName);
+        Process? process = FirstProcess(processName);
         if (process == null) return new List<GameWindow>();
         return Enumerate((uint)process.Id, true, process);
     }
 
-    static Process FirstProcess(string processName)
+    static Process? FirstProcess(string processName)
     {
         var processes = Process.GetProcessesByName(processName);
         return processes.Length == 0 ? null : processes[0];
