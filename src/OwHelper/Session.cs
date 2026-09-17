@@ -52,8 +52,8 @@ sealed class Session
         }
         Interlocked.Exchange(ref finished, 0);
         failureStreak = 0;
-        governor.Apply();
-        Console.WriteLine("  已开启：CPU 低优先级 + EcoQoS 节能");
+        ResourceApplyResult applied = governor.Apply();
+        Console.WriteLine($"  资源策略：{Status("已应用", "CPU 优先级", applied.Priority)}；{Status("已应用", "EcoQoS", applied.Power)}");
         cts = new CancellationTokenSource();
         loopTask = Task.Run(() => LoopAsync(cts.Token));
         Console.WriteLine("  ▶ 挂机开始（空格停止）");
@@ -152,8 +152,18 @@ sealed class Session
     void Finish()
     {
         if (Interlocked.Exchange(ref finished, 1) != 0) return;
-        governor?.Restore();
-        Console.WriteLine("  已恢复：CPU 正常优先级");
+        ResourceRestoreResult restored = governor?.Restore();
+        if (restored != null)
+        {
+            Console.WriteLine($"  资源恢复：{Status("已恢复", "CPU 优先级", restored.Priority)}；{Status("已恢复", "EcoQoS", restored.Power)}");
+        }
         Console.WriteLine("  ■ 挂机已停止");
+    }
+
+    static string Status(string verb, string label, OperationResult result)
+    {
+        if (result.Success) return $"{label} {verb}";
+        string code = result.NativeError is int nativeError ? $" (Win32={nativeError})" : "";
+        return $"{label} 失败: {result.Message}{code}";
     }
 }
