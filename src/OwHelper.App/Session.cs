@@ -109,6 +109,7 @@ public sealed class Session : IAsyncDisposable
             Interlocked.Exchange(ref finished, 0);
             failureStreak = 0;
             ResourceApplyResult applied = governor!.Apply(Policy);
+            LastResourceApplyPartial = !applied.Success;
             output($"  资源策略：{Describe("已应用", "CPU 优先级", applied.Priority)}；{Describe("已应用", "EcoQoS", applied.Power)}");
             LogResourceApply(applied);
             cts = new CancellationTokenSource();
@@ -346,6 +347,7 @@ public sealed class Session : IAsyncDisposable
                     target = found;
                     governor = governorFactory(found.Process);
                     ResourceApplyResult applied = governor.Apply(Policy);
+                    LastResourceApplyPartial = !applied.Success;
                     output($"  已重新连接: PID {oldPid} → {found.Pid}；资源策略：{Describe("已应用", "CPU 优先级", applied.Priority)}；{Describe("已应用", "EcoQoS", applied.Power)}");
                     LogResourceApply(applied);
                     Log(LogLevel.Information, "TARGET_REATTACHED", pid: (int)found.Pid, hwnd: found.Handle, message: $"{oldPid} -> {found.Pid}");

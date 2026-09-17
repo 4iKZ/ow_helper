@@ -26,6 +26,7 @@ public class ArchitectureTests
     [InlineData("BgKeyProbe")]
     [InlineData("OwHelper")]
     [InlineData("OwHelper.App")]
+    [InlineData("OwHelper.Tray")]
     public void AppAssembly_DeclaresNoPInvokes(string assemblyName)
     {
         Assembly assembly = Assembly.Load(assemblyName);
