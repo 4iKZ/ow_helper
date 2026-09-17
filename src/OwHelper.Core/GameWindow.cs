@@ -18,11 +18,15 @@ public sealed class GameWindow
     public int Width { get; private set; }
     public int Height { get; private set; }
     public Process Process { get; private set; } = null!;
+    public TargetIdentity Identity { get; private set; } = null!;
 
     GameWindow() { }
 
-    public bool IsAlive => Native.IsWindow(Handle);
+    public bool IsAlive => Validate().Valid;
     public bool IsForeground => Native.GetForegroundWindow() == Handle;
+
+    public TargetValidationResult Validate()
+        => TargetValidation.Validate(Handle, (int)Pid, Process, Identity?.ProcessStartTimeUtc);
 
     public bool IsResponding(out long elapsedMs)
     {
@@ -83,18 +87,33 @@ public sealed class GameWindow
         var title = new StringBuilder(256);
         Native.GetWindowText(h, title, title.Capacity);
         Native.GetWindowRect(h, out Native.RECT r);
+        string className = cls.ToString();
+        string windowTitle = title.ToString();
         return new GameWindow
         {
             Handle = h,
             Pid = pid,
-            Class = cls.ToString(),
-            Title = title.ToString(),
+            Class = className,
+            Title = windowTitle,
             Visible = Native.IsWindowVisible(h),
             Minimized = Native.IsIconic(h),
             Depth = depth,
             Width = r.Right - r.Left,
             Height = r.Bottom - r.Top,
             Process = process,
+            Identity = new TargetIdentity((int)pid, h, SafeProcessName(process), className, windowTitle, TryGetStartTimeUtc(process)),
         };
+    }
+
+    static string SafeProcessName(Process process)
+    {
+        try { return process.ProcessName; }
+        catch { return ""; }
+    }
+
+    static DateTime? TryGetStartTimeUtc(Process process)
+    {
+        try { return process.StartTime.ToUniversalTime(); }
+        catch { return null; }
     }
 }
