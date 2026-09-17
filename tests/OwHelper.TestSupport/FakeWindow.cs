@@ -3,13 +3,14 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading;
 
-namespace OwHelper.Core.Tests;
+namespace OwHelper.TestSupport;
 
-sealed class FakeWindow : IDisposable
+public sealed class FakeWindow : IDisposable
 {
     const int HWND_MESSAGE = -3;
     const uint WM_CLOSE = 0x0010;
     const uint WM_DESTROY = 0x0002;
+    const uint WS_POPUP = 0x80000000;
 
     public readonly record struct Record(uint Msg, IntPtr WParam, IntPtr LParam);
 
@@ -18,13 +19,15 @@ sealed class FakeWindow : IDisposable
     readonly ManualResetEventSlim ready = new(false);
     readonly string className = "FakeWindow_" + Guid.NewGuid().ToString("N");
     readonly WndProcDelegate wndProc;
+    readonly bool topLevel;
     volatile bool created;
     IntPtr handle = IntPtr.Zero;
 
     public IntPtr Handle => handle;
 
-    public FakeWindow()
+    public FakeWindow(bool topLevel = false)
     {
+        this.topLevel = topLevel;
         wndProc = WndProc;
         thread = new Thread(ThreadMain) { IsBackground = true };
         thread.Start();
@@ -42,7 +45,11 @@ sealed class FakeWindow : IDisposable
             lpszClassName = className,
         };
         RegisterClassEx(ref wc);
-        handle = CreateWindowEx(0, className, className, 0, 0, 0, 100, 100, new IntPtr(HWND_MESSAGE), IntPtr.Zero, IntPtr.Zero, IntPtr.Zero);
+        IntPtr parent = topLevel ? IntPtr.Zero : new IntPtr(HWND_MESSAGE);
+        uint style = topLevel ? WS_POPUP : 0;
+        uint width = topLevel ? 4000u : 100u;
+        uint height = topLevel ? 3000u : 100u;
+        handle = CreateWindowEx(0, className, className, style, 0, 0, (int)width, (int)height, parent, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero);
         created = true;
         ready.Set();
         while (GetMessage(out MSG msg, IntPtr.Zero, 0, 0) > 0)
@@ -88,6 +95,7 @@ sealed class FakeWindow : IDisposable
 
     public void Dispose()
     {
+        if (Interlocked.Exchange(ref disposedFlag, 1) != 0) return;
         if (handle != IntPtr.Zero) PostMessage(handle, WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
         thread.Join(3000);
         ready.Dispose();

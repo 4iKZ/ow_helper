@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using OwHelper.TestSupport;
 using Xunit;
 
 namespace OwHelper.Core.Tests;
@@ -83,3 +84,4 @@ public class WindowPlacementTests
         Assert.Equal(PlacementState.None, placement.State);
     }
 }
+

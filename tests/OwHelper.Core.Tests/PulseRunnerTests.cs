@@ -1,4 +1,5 @@
 using System.Linq;
+using OwHelper.TestSupport;
 using Xunit;
 
 namespace OwHelper.Core.Tests;
@@ -110,3 +111,4 @@ public class PulseRunnerTests
         Assert.Equal("KILLFOCUS", result.Messages[5].Name);
     }
 }
+

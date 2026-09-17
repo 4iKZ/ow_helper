@@ -29,6 +29,10 @@ public sealed class WindowPlacement
         this.pid = pid;
     }
 
+    public IntPtr Handle => hwnd;
+
+    public int Pid => pid;
+
     public PlacementState State { get; private set; } = PlacementState.None;
 
     public bool IsOffscreen => State == PlacementState.Offscreen;

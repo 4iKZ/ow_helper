@@ -39,18 +39,22 @@ public sealed class GameWindow
     public static GameWindow? Find(string processName)
     {
         Process? process = FirstProcess(processName);
-        if (process == null) return null;
-        return Enumerate((uint)process.Id, false, process)
+        return process == null ? null : Find(process);
+    }
+
+    public static GameWindow? Find(Process process)
+        => Enumerate((uint)process.Id, false, process)
             .OrderByDescending(w => (long)w.Width * w.Height)
             .FirstOrDefault();
-    }
 
     public static List<GameWindow> EnumerateAll(string processName)
     {
         Process? process = FirstProcess(processName);
-        if (process == null) return new List<GameWindow>();
-        return Enumerate((uint)process.Id, true, process);
+        return process == null ? new List<GameWindow>() : EnumerateAll(process);
     }
+
+    public static List<GameWindow> EnumerateAll(Process process)
+        => Enumerate((uint)process.Id, true, process);
 
     static Process? FirstProcess(string processName)
     {

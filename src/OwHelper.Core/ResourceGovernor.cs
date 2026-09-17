@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 
 namespace OwHelper.Core;
 
-public sealed class ResourceGovernor
+public sealed class ResourceGovernor : IResourceGovernor
 {
     readonly Process process;
     ProcessPriorityClass originalPriority;

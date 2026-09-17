@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using OwHelper.TestSupport;
 using Xunit;
 
 namespace OwHelper.Core.Tests;
@@ -70,3 +71,4 @@ public class TargetValidationTests
         Assert.Contains("restarted", result.Reason);
     }
 }
+
