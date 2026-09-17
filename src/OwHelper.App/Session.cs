@@ -7,7 +7,7 @@ using OwHelper.Core;
 
 namespace OwHelper;
 
-internal sealed class Session : IAsyncDisposable
+public sealed class Session : IAsyncDisposable
 {
     const string ProcessName = "Overwatch";
 
@@ -65,6 +65,8 @@ internal sealed class Session : IAsyncDisposable
     public GameWindow? Target => target;
     public int PulseCount => pulseCount;
     public DateTimeOffset? LastPulseAt { get; private set; }
+    public bool IsOffscreen => placement.IsOffscreen;
+    public bool LastResourceApplyPartial { get; private set; }
     public bool IsRunning => State is SessionState.Running or SessionState.Reattaching;
 
     public async Task<bool> AttachAsync()
@@ -456,3 +458,4 @@ internal sealed class Session : IAsyncDisposable
     static string ErrorCode(int? nativeError)
         => nativeError is int code ? $" (Win32={code})" : "";
 }
+

@@ -4,7 +4,7 @@ using System.Text.Json;
 
 namespace OwHelper;
 
-internal sealed record RuntimeState(
+public sealed record RuntimeState(
     int Version,
     int Pid,
     DateTime? ProcessStartTimeUtc,
@@ -13,7 +13,7 @@ internal sealed record RuntimeState(
     int Top,
     bool OffscreenApplied);
 
-internal sealed class RuntimeStateStore
+public sealed class RuntimeStateStore
 {
     static readonly JsonSerializerOptions Options = new JsonSerializerOptions
     {
@@ -66,3 +66,4 @@ internal sealed class RuntimeStateStore
         catch { }
     }
 }
+

@@ -1,6 +1,6 @@
 namespace OwHelper;
 
-internal enum SessionState
+public enum SessionState
 {
     Detached,
     WaitingForTarget,
@@ -12,3 +12,4 @@ internal enum SessionState
     Faulted,
     Disposed,
 }
+

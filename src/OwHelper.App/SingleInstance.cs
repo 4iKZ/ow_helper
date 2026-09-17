@@ -3,7 +3,7 @@ using System.Threading;
 
 namespace OwHelper;
 
-internal sealed class SingleInstance : IDisposable
+public sealed class SingleInstance : IDisposable
 {
     readonly Mutex mutex;
 
@@ -24,3 +24,4 @@ internal sealed class SingleInstance : IDisposable
         mutex.Dispose();
     }
 }
+

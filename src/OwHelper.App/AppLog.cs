@@ -6,7 +6,7 @@ using System.Threading;
 
 namespace OwHelper;
 
-internal enum LogLevel
+public enum LogLevel
 {
     Debug,
     Information,
@@ -14,7 +14,7 @@ internal enum LogLevel
     Error,
 }
 
-internal sealed record LogEntry(
+public sealed record LogEntry(
     DateTimeOffset Timestamp,
     LogLevel Level,
     string Event,
@@ -26,7 +26,7 @@ internal sealed record LogEntry(
     long? ElapsedMs = null,
     string? Message = null);
 
-internal sealed class AppLog
+public sealed class AppLog
 {
     readonly object gate = new object();
     readonly string filePath;
@@ -126,3 +126,4 @@ internal sealed class AppLog
         return sb.ToString();
     }
 }
+

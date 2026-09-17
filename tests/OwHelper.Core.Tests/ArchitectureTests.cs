@@ -25,6 +25,7 @@ public class ArchitectureTests
     [Theory]
     [InlineData("BgKeyProbe")]
     [InlineData("OwHelper")]
+    [InlineData("OwHelper.App")]
     public void AppAssembly_DeclaresNoPInvokes(string assemblyName)
     {
         Assembly assembly = Assembly.Load(assemblyName);
@@ -46,6 +47,18 @@ public class ArchitectureTests
         Assert.DoesNotContain(references, name => name.Contains("Windows.Forms", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(references, name => name.Contains("PresentationFramework", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(references, name => name.Contains("PresentationCore", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Core_DoesNotReferenceAppLayer()
+    {
+        var references = typeof(ResourceGovernor).Assembly.GetReferencedAssemblies()
+            .Select(a => a.Name ?? "")
+            .ToList();
+
+        Assert.DoesNotContain(references, name => name.Contains("OwHelper.App", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(references, name => name.Contains("OwHelper.Tray", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(references, name => name.Equals("OwHelper", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]

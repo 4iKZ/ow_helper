@@ -4,7 +4,7 @@ using OwHelper.Core;
 
 namespace OwHelper;
 
-internal static class RuntimeRecovery
+public static class RuntimeRecovery
 {
     public static bool TryRecover(RuntimeStateStore store, Action<string> output, Func<string, bool> confirm)
     {
@@ -43,3 +43,4 @@ internal static class RuntimeRecovery
         return result.Success;
     }
 }
+

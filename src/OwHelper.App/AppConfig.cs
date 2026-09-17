@@ -9,7 +9,7 @@ using OwHelper.Core;
 
 namespace OwHelper;
 
-internal sealed class AppConfig
+public sealed class AppConfig
 {
     public TargetSection Target { get; set; } = new TargetSection();
     public InputSection Input { get; set; } = new InputSection();
@@ -187,3 +187,4 @@ internal sealed class AppConfig
         }
     }
 }
+
