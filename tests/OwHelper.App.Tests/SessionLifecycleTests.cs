@@ -257,6 +257,30 @@ public class SessionLifecycleTests
 
         Assert.Equal(SessionState.Running, h.Session.State);
         Assert.Contains(h.Log, line => line.Contains("失败"));
+        Assert.Contains("部分失败", h.Session.DequeueNotice() ?? "");
+    }
+
+    [Fact]
+    public async Task S11_Reattach_EmitsNoticeWithPidTransition()
+    {
+        await using var h = new Harness();
+        h.Session.ReattachPollMs = 50;
+        await h.Session.AttachAsync();
+        await h.Session.StartAsync();
+        int oldPid = (int)h.Session.Target!.Pid;
+
+        using var standby = new FakeWindow(topLevel: true);
+        h.Locator.Next = null;
+        h.Window.Dispose();
+        Assert.True(await WaitFor(() => h.Session.State == SessionState.Reattaching, 10000));
+
+        h.Locator.Next = GameWindow.Find(Process.GetCurrentProcess());
+        Assert.NotNull(h.Locator.Next);
+        Assert.True(await WaitFor(() => h.Session.State == SessionState.Running, 10000));
+
+        string notice = h.Session.DequeueNotice() ?? "";
+        Assert.Contains("已重新连接", notice);
+        Assert.Contains(oldPid.ToString(), notice);
     }
 
     static async Task<bool> WaitFor(Func<bool> condition, int timeoutMs)

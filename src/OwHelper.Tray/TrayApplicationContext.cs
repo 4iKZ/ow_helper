@@ -132,6 +132,24 @@ internal sealed class TrayApplicationContext : ApplicationContext
         }
 
         statusForm?.RefreshStatus(status);
+        ShowPendingNotices();
+    }
+
+    void ShowPendingNotices()
+    {
+        var pending = new List<string>();
+        string? notice;
+        while ((notice = controller.Session.DequeueNotice()) != null)
+        {
+            pending.Add(notice);
+        }
+        if (pending.Count == 0) return;
+
+        string text = string.Join(Environment.NewLine, pending);
+        if (text.Length > 250) text = text[..249] + "…";
+        notifyIcon.BalloonTipTitle = "OW Helper";
+        notifyIcon.BalloonTipText = text;
+        notifyIcon.ShowBalloonTip(5000);
     }
 
     void ShowStatusWindow()

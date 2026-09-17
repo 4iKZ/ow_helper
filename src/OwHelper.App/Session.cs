@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
@@ -27,6 +28,7 @@ public sealed class Session : IAsyncDisposable
     CancellationTokenSource? cts;
     CancellationTokenSource? wakeCts;
     Task? loopTask;
+    readonly Queue<string> notices = new Queue<string>();
     volatile bool reattachRequested;
     int pulseCount;
     int failureStreak;
@@ -69,6 +71,22 @@ public sealed class Session : IAsyncDisposable
     public bool LastResourceApplyPartial { get; private set; }
     public bool IsRunning => State is SessionState.Running or SessionState.Reattaching;
 
+    public string? DequeueNotice()
+    {
+        lock (notices)
+        {
+            return notices.Count > 0 ? notices.Dequeue() : null;
+        }
+    }
+
+    void Notify(string message)
+    {
+        lock (notices)
+        {
+            if (notices.Count < 32) notices.Enqueue(message);
+        }
+    }
+
     public async Task<bool> AttachAsync()
     {
         await gate.WaitAsync();
@@ -110,6 +128,10 @@ public sealed class Session : IAsyncDisposable
             failureStreak = 0;
             ResourceApplyResult applied = governor!.Apply(Policy);
             LastResourceApplyPartial = !applied.Success;
+            if (LastResourceApplyPartial)
+            {
+                Notify($"资源策略部分失败：{applied.Priority.Message} / {applied.Power.Message}");
+            }
             output($"  资源策略：{Describe("已应用", "CPU 优先级", applied.Priority)}；{Describe("已应用", "EcoQoS", applied.Power)}");
             LogResourceApply(applied);
             cts = new CancellationTokenSource();
@@ -222,6 +244,7 @@ public sealed class Session : IAsyncDisposable
                 if (!await TryReattachAsync(ct))
                 {
                     output("  找不到 OW 窗口，挂机已停止");
+                    Notify("目标失联，挂机已停止");
                     Log(LogLevel.Warning, "TARGET_LOST", message: "reattach aborted");
                     break;
                 }
@@ -253,6 +276,7 @@ public sealed class Session : IAsyncDisposable
                     {
                         Log(LogLevel.Error, "NATIVE_ERROR", pid: (int)current.Pid, nativeError: first.Error, operation: first.Name, message: "consecutive pulse failures");
                         output($"  警告：连续 3 次脉冲发送失败（{first.Name} err={first.Error}），可能需要以管理员身份运行");
+                        Notify($"连续 3 次脉冲失败（{first.Name} err={first.Error}）");
                     }
                 }
                 output($"  [{DateTime.Now:HH:mm:ss}] 第 {pulseCount} 次脉冲完成");
@@ -348,7 +372,12 @@ public sealed class Session : IAsyncDisposable
                     governor = governorFactory(found.Process);
                     ResourceApplyResult applied = governor.Apply(Policy);
                     LastResourceApplyPartial = !applied.Success;
+                    if (LastResourceApplyPartial)
+                    {
+                        Notify($"重连后资源策略部分失败：{applied.Priority.Message} / {applied.Power.Message}");
+                    }
                     output($"  已重新连接: PID {oldPid} → {found.Pid}；资源策略：{Describe("已应用", "CPU 优先级", applied.Priority)}；{Describe("已应用", "EcoQoS", applied.Power)}");
+                    Notify($"已重新连接到 Overwatch：PID {oldPid} → {found.Pid}");
                     LogResourceApply(applied);
                     Log(LogLevel.Information, "TARGET_REATTACHED", pid: (int)found.Pid, hwnd: found.Handle, message: $"{oldPid} -> {found.Pid}");
                     State = SessionState.Running;
