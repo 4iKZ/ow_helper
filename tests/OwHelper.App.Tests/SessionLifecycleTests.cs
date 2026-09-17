@@ -257,7 +257,7 @@ public class SessionLifecycleTests
 
         Assert.Equal(SessionState.Running, h.Session.State);
         Assert.Contains(h.Log, line => line.Contains("失败"));
-        Assert.Contains("部分失败", h.Session.DequeueNotice() ?? "");
+        Assert.Equal(SessionNoticeKind.ResourcePartialFailure, h.Session.DequeueNotice()?.Kind);
     }
 
     [Fact]
@@ -278,9 +278,10 @@ public class SessionLifecycleTests
         Assert.NotNull(h.Locator.Next);
         Assert.True(await WaitFor(() => h.Session.State == SessionState.Running, 10000));
 
-        string notice = h.Session.DequeueNotice() ?? "";
-        Assert.Contains("已重新连接", notice);
-        Assert.Contains(oldPid.ToString(), notice);
+        SessionNotice? notice = h.Session.DequeueNotice();
+        Assert.NotNull(notice);
+        Assert.Equal(SessionNoticeKind.TargetReattached, notice.Kind);
+        Assert.Equal(oldPid, notice.OldPid);
     }
 
     static async Task<bool> WaitFor(Func<bool> condition, int timeoutMs)
@@ -294,5 +295,6 @@ public class SessionLifecycleTests
         return condition();
     }
 }
+
 
 

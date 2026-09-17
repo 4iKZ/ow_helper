@@ -140,10 +140,10 @@ internal sealed class TrayApplicationContext : ApplicationContext
     void ShowPendingNotices()
     {
         var pending = new List<string>();
-        string? notice;
+        SessionNotice? notice;
         while ((notice = controller.Session.DequeueNotice()) != null)
         {
-            pending.Add(notice);
+            pending.Add(PlainLanguage.Notice(notice));
         }
         if (pending.Count == 0) return;
 

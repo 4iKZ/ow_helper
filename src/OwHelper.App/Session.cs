@@ -28,7 +28,7 @@ public sealed class Session : IAsyncDisposable
     CancellationTokenSource? cts;
     CancellationTokenSource? wakeCts;
     Task? loopTask;
-    readonly Queue<string> notices = new Queue<string>();
+    readonly Queue<SessionNotice> notices = new Queue<SessionNotice>();
     volatile bool reattachRequested;
     int pulseCount;
     int failureStreak;
@@ -72,7 +72,7 @@ public sealed class Session : IAsyncDisposable
     public bool LastResourceApplyPartial { get; private set; }
     public bool IsRunning => State is SessionState.Running or SessionState.Reattaching;
 
-    public string? DequeueNotice()
+    public SessionNotice? DequeueNotice()
     {
         lock (notices)
         {
@@ -93,18 +93,18 @@ public sealed class Session : IAsyncDisposable
             LogResourceApply(applied);
             if (LastResourceApplyPartial)
             {
-                Notify($"资源策略部分失败：{applied.Priority.Message} / {applied.Power.Message}");
+                Notify(new SessionNotice(SessionNoticeKind.ResourcePartialFailure));
             }
             return applied;
         }
         finally { gate.Release(); }
     }
 
-    void Notify(string message)
+    void Notify(SessionNotice notice)
     {
         lock (notices)
         {
-            if (notices.Count < 32) notices.Enqueue(message);
+            if (notices.Count < 32) notices.Enqueue(notice);
         }
     }
 
@@ -151,7 +151,7 @@ public sealed class Session : IAsyncDisposable
             LastResourceApplyPartial = !applied.Success;
             if (LastResourceApplyPartial)
             {
-                Notify($"资源策略部分失败：{applied.Priority.Message} / {applied.Power.Message}");
+                Notify(new SessionNotice(SessionNoticeKind.ResourcePartialFailure));
             }
             output($"  资源策略：{Describe("已应用", "CPU 优先级", applied.Priority)}；{Describe("已应用", "EcoQoS", applied.Power)}");
             LogResourceApply(applied);
@@ -265,7 +265,7 @@ public sealed class Session : IAsyncDisposable
                 if (!await TryReattachAsync(ct))
                 {
                     output("  找不到 OW 窗口，挂机已停止");
-                    Notify("目标失联，挂机已停止");
+                    Notify(new SessionNotice(SessionNoticeKind.TargetLost));
                     Log(LogLevel.Warning, "TARGET_LOST", message: "reattach aborted");
                     break;
                 }
@@ -297,7 +297,7 @@ public sealed class Session : IAsyncDisposable
                     {
                         Log(LogLevel.Error, "NATIVE_ERROR", pid: (int)current.Pid, nativeError: first.Error, operation: first.Name, message: "consecutive pulse failures");
                         output($"  警告：连续 3 次脉冲发送失败（{first.Name} err={first.Error}），可能需要以管理员身份运行");
-                        Notify($"连续 3 次脉冲失败（{first.Name} err={first.Error}）");
+                        Notify(new SessionNotice(SessionNoticeKind.PulseFailures));
                     }
                 }
                 output($"  [{DateTime.Now:HH:mm:ss}] 第 {pulseCount} 次脉冲完成");
@@ -395,10 +395,10 @@ public sealed class Session : IAsyncDisposable
                     LastResourceApplyPartial = !applied.Success;
                     if (LastResourceApplyPartial)
                     {
-                        Notify($"重连后资源策略部分失败：{applied.Priority.Message} / {applied.Power.Message}");
+                        Notify(new SessionNotice(SessionNoticeKind.ResourcePartialFailure));
                     }
                     output($"  已重新连接: PID {oldPid} → {found.Pid}；资源策略：{Describe("已应用", "CPU 优先级", applied.Priority)}；{Describe("已应用", "EcoQoS", applied.Power)}");
-                    Notify($"已重新连接到 Overwatch：PID {oldPid} → {found.Pid}");
+                    Notify(new SessionNotice(SessionNoticeKind.TargetReattached, oldPid, (int)found.Pid));
                     LogResourceApply(applied);
                     Log(LogLevel.Information, "TARGET_REATTACHED", pid: (int)found.Pid, hwnd: found.Handle, message: $"{oldPid} -> {found.Pid}");
                     State = SessionState.Running;
@@ -510,4 +510,5 @@ public sealed class Session : IAsyncDisposable
     static string ErrorCode(int? nativeError)
         => nativeError is int code ? $" (Win32={code})" : "";
 }
+
 
