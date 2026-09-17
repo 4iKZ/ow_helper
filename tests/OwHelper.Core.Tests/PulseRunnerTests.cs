@@ -96,6 +96,32 @@ public class PulseRunnerTests
     }
 
     [Fact]
+    public void ExtendedKeys_SetBit24_OnDownAndUp()
+    {
+        using var window = new FakeWindow();
+        PulseRunner.Execute(window.Handle, new PulseRecipe { Keys = new[] { 0x26 }, HoldMs = 20 });
+
+        var records = window.WaitFor(4);
+        long down = records[1].LParam.ToInt64();
+        long up = records[2].LParam.ToInt64();
+        Assert.Equal(1, (down >> 24) & 0x1);
+        Assert.Equal(1, (up >> 24) & 0x1);
+    }
+
+    [Fact]
+    public void NonExtendedKeys_LeaveBit24Clear()
+    {
+        using var window = new FakeWindow();
+        PulseRunner.Execute(window.Handle, new PulseRecipe { Keys = new[] { 0x10 }, HoldMs = 20 });
+
+        var records = window.WaitFor(4);
+        long down = records[1].LParam.ToInt64();
+        long up = records[2].LParam.ToInt64();
+        Assert.Equal(0, (down >> 24) & 0x1);
+        Assert.Equal(0, (up >> 24) & 0x1);
+    }
+
+    [Fact]
     public void Result_ReportsPerMessageOutcomes()
     {
         using var window = new FakeWindow();

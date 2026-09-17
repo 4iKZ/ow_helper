@@ -42,6 +42,10 @@ src\OwHelper\bin\Release\net8.0-windows\OwHelper.exe
 src\OwHelper\bin\Release\net8.0-windows\OwHelper.exe shift,w 30
 ```
 
+可用按键名：`shift` `ctrl` `alt` `lshift` `rshift` `lctrl` `rctrl` `lalt` `ralt` `space` `enter` `tab` `esc`、
+`a`–`z`、`0`–`9`、`f1`–`f12`、`up` `down` `left` `right`、`insert` `delete` `home` `end` `pageup` `pagedown`、
+`printscreen` `numlock` `numdivide`（方向键等扩展键会正确设置 extended-key 位）。
+
 按键：
 
 | 键 | 功能 |

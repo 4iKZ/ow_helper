@@ -49,6 +49,7 @@ public static class PulseRunner
     {
         uint scan = Native.MapVirtualKey((uint)vk, Native.MAPVK_VK_TO_VSC);
         long bits = 1L | ((long)scan << 16);
+        if (IsExtendedKey(vk)) bits |= 1L << 24;
         if (!down) bits |= (1L << 30) | (1L << 31);
         bool ok = Native.PostMessage(hwnd, down ? Native.WM_KEYDOWN : Native.WM_KEYUP, new IntPtr(vk), new IntPtr(bits));
         return new MessageOutcome
@@ -58,4 +59,14 @@ public static class PulseRunner
             Error = ok ? 0 : Marshal.GetLastWin32Error(),
         };
     }
+
+    static bool IsExtendedKey(int vk) => vk switch
+    {
+        0x21 or 0x22 or 0x23 or 0x24 or 0x25 or 0x26 or 0x27 or 0x28 => true,
+        0x2C or 0x2D or 0x2E => true,
+        0x5B or 0x5C or 0x5D => true,
+        0x6F or 0x90 => true,
+        0xA3 or 0xA5 => true,
+        _ => false,
+    };
 }

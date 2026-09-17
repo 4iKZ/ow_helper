@@ -10,8 +10,14 @@ public static class KeyNames
         switch (name)
         {
             case "shift": return 0x10;
+            case "lshift": return 0xA0;
+            case "rshift": return 0xA1;
             case "ctrl": case "control": return 0x11;
+            case "lctrl": return 0xA2;
+            case "rctrl": return 0xA3;
             case "alt": return 0x12;
+            case "lalt": return 0xA4;
+            case "ralt": return 0xA5;
             case "space": return 0x20;
             case "enter": case "return": return 0x0D;
             case "tab": return 0x09;
@@ -20,6 +26,15 @@ public static class KeyNames
             case "down": return 0x28;
             case "left": return 0x25;
             case "right": return 0x27;
+            case "insert": return 0x2D;
+            case "delete": case "del": return 0x2E;
+            case "home": return 0x24;
+            case "end": return 0x23;
+            case "pageup": return 0x21;
+            case "pagedown": return 0x22;
+            case "printscreen": return 0x2C;
+            case "numlock": return 0x90;
+            case "numdivide": return 0x6F;
         }
         if (name.Length == 1)
         {
