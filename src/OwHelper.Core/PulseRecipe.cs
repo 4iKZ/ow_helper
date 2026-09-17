@@ -10,6 +10,4 @@ public sealed class PulseRecipe
     public bool SendFocus { get; init; } = true;
     public int FocusWaitMs { get; init; } = 50;
     public int HoldMs { get; init; } = 200;
-
-    public static PulseRecipe Default { get; } = new PulseRecipe { Keys = new[] { 0x10 } };
 }

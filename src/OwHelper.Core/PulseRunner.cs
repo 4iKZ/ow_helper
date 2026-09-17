@@ -23,23 +23,6 @@ public sealed class PulseResult
 
 public static class PulseRunner
 {
-    public static void Activate(IntPtr hwnd, bool activateApp, bool activate, bool focus)
-    {
-        if (activateApp) Native.PostMessage(hwnd, Native.WM_ACTIVATEAPP, new IntPtr(1), IntPtr.Zero);
-        if (activate) Native.PostMessage(hwnd, Native.WM_ACTIVATE, new IntPtr(Native.WA_ACTIVE), IntPtr.Zero);
-        if (focus) Native.PostMessage(hwnd, Native.WM_SETFOCUS, IntPtr.Zero, IntPtr.Zero);
-    }
-
-    public static void Deactivate(IntPtr hwnd, bool activateApp, bool activate, bool focus)
-    {
-        if (focus) Native.PostMessage(hwnd, Native.WM_KILLFOCUS, IntPtr.Zero, IntPtr.Zero);
-        if (activate) Native.PostMessage(hwnd, Native.WM_ACTIVATE, new IntPtr(Native.WA_INACTIVE), IntPtr.Zero);
-        if (activateApp) Native.PostMessage(hwnd, Native.WM_ACTIVATEAPP, IntPtr.Zero, IntPtr.Zero);
-    }
-
-    public static bool SendKey(IntPtr hwnd, int vk, bool down, bool repeat = false)
-        => Native.PostMessage(hwnd, down ? Native.WM_KEYDOWN : Native.WM_KEYUP, new IntPtr(vk), KeyLParam(vk, !down, repeat));
-
     public static PulseResult Execute(IntPtr hwnd, PulseRecipe recipe)
     {
         var messages = new List<MessageOutcome>();
@@ -64,21 +47,15 @@ public static class PulseRunner
 
     static MessageOutcome Key(IntPtr hwnd, int vk, bool down)
     {
-        bool ok = SendKey(hwnd, vk, down);
+        uint scan = Native.MapVirtualKey((uint)vk, Native.MAPVK_VK_TO_VSC);
+        long bits = 1L | ((long)scan << 16);
+        if (!down) bits |= (1L << 30) | (1L << 31);
+        bool ok = Native.PostMessage(hwnd, down ? Native.WM_KEYDOWN : Native.WM_KEYUP, new IntPtr(vk), new IntPtr(bits));
         return new MessageOutcome
         {
             Name = down ? $"KEYDOWN(0x{vk:X2})" : $"KEYUP(0x{vk:X2})",
             Ok = ok,
             Error = ok ? 0 : Marshal.GetLastWin32Error(),
         };
-    }
-
-    static IntPtr KeyLParam(int vk, bool keyUp, bool repeat)
-    {
-        uint scan = Native.MapVirtualKey((uint)vk, Native.MAPVK_VK_TO_VSC);
-        long v = 1L | ((long)scan << 16);
-        if (keyUp) { v |= (1L << 30) | (1L << 31); }
-        else if (repeat) { v |= (1L << 30); }
-        return new IntPtr(v);
     }
 }

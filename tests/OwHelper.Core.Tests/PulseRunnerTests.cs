@@ -95,19 +95,6 @@ public class PulseRunnerTests
     }
 
     [Fact]
-    public void SendKey_Repeat_SetsPreviousStateBitOnly()
-    {
-        using var window = new FakeWindow();
-        PulseRunner.SendKey(window.Handle, 0x10, down: true, repeat: true);
-
-        var records = window.WaitFor(1);
-        long lp = records[0].LParam.ToInt64();
-        Assert.Equal(WM_KEYDOWN, records[0].Msg);
-        Assert.Equal(1, (lp >> 30) & 0x1);
-        Assert.Equal(0, (lp >> 31) & 0x1);
-    }
-
-    [Fact]
     public void Result_ReportsPerMessageOutcomes()
     {
         using var window = new FakeWindow();

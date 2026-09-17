@@ -6,25 +6,6 @@ using System.Text;
 
 namespace OwHelper.Core;
 
-public readonly struct WindowRect
-{
-    public int Left { get; }
-    public int Top { get; }
-    public int Right { get; }
-    public int Bottom { get; }
-
-    public WindowRect(int left, int top, int right, int bottom)
-    {
-        Left = left;
-        Top = top;
-        Right = right;
-        Bottom = bottom;
-    }
-
-    public int Width => Right - Left;
-    public int Height => Bottom - Top;
-}
-
 public sealed class GameWindow
 {
     public IntPtr Handle { get; private set; }
@@ -34,7 +15,8 @@ public sealed class GameWindow
     public bool Visible { get; private set; }
     public bool Minimized { get; private set; }
     public int Depth { get; private set; }
-    public WindowRect Rect { get; private set; }
+    public int Width { get; private set; }
+    public int Height { get; private set; }
     public Process Process { get; private set; }
 
     GameWindow() { }
@@ -55,7 +37,7 @@ public sealed class GameWindow
         Process process = FirstProcess(processName);
         if (process == null) return null;
         return Enumerate((uint)process.Id, false, process)
-            .OrderByDescending(w => (long)w.Rect.Width * w.Rect.Height)
+            .OrderByDescending(w => (long)w.Width * w.Height)
             .FirstOrDefault();
     }
 
@@ -110,7 +92,8 @@ public sealed class GameWindow
             Visible = Native.IsWindowVisible(h),
             Minimized = Native.IsIconic(h),
             Depth = depth,
-            Rect = new WindowRect(r.Left, r.Top, r.Right, r.Bottom),
+            Width = r.Right - r.Left,
+            Height = r.Bottom - r.Top,
             Process = process,
         };
     }

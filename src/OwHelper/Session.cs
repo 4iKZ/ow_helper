@@ -36,7 +36,7 @@ sealed class Session
 
     public void PrintTarget()
     {
-        Console.WriteLine($"已找到 OW: PID={target.Pid}  HWND=0x{target.Handle.ToInt64():X8}  {target.Rect.Width}x{target.Rect.Height}");
+        Console.WriteLine($"已找到 OW: PID={target.Pid}  HWND=0x{target.Handle.ToInt64():X8}  {target.Width}x{target.Height}");
     }
 
     public void Start()
@@ -138,7 +138,8 @@ sealed class Session
             }
             try
             {
-                await Task.Delay(Schedule.NextWaitMs(IntervalSec, rng), ct);
+                double next = IntervalSec * (0.85 + rng.NextDouble() * 0.3);
+                await Task.Delay(Math.Max(1000, (int)(next * 1000)), ct);
             }
             catch (TaskCanceledException)
             {
