@@ -82,6 +82,18 @@ public sealed class Session : IAsyncDisposable
 
     public void UpdateRecipe(PulseRecipe updated) => recipe = updated;
 
+    public void ApplyConfig(AppConfig config)
+    {
+        recipe = config.BuildRecipe();
+        IntervalSec = config.Input.IntervalSeconds;
+        JitterPercent = config.Input.JitterPercent;
+        TargetProcessName = config.Target.ProcessName;
+        Policy = config.BuildPolicy();
+        SkipWhenForeground = config.Input.SkipWhenTargetForeground;
+        AllowMoveOffscreen = config.Window.AllowMoveOffscreen;
+        KeepOffscreenAcrossRestart = config.Window.KeepOffscreenAcrossRestart;
+    }
+
     public async Task<ResourceApplyResult?> ReapplyPolicyAsync()
     {
         await gate.WaitAsync();

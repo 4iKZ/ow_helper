@@ -319,6 +319,45 @@ public class SessionLifecycleTests
         Assert.True(h.Placement.TaskbarHidden);
     }
 
+    [Fact]
+    public void S14_ApplyConfig_MapsEveryField()
+    {
+        var config = new AppConfig();
+        config.Input.Keys = new List<string> { "mouseleft", "shift" };
+        config.Input.IntervalSeconds = 45;
+        config.Input.JitterPercent = 7;
+        config.Input.HoldMilliseconds = 150;
+        config.Input.FocusWaitMilliseconds = 30;
+        config.Input.SkipWhenTargetForeground = false;
+        config.Resource.Priority = "AboveNormal";
+        config.Resource.EcoQoS = false;
+        config.Window.AllowMoveOffscreen = false;
+        config.Window.KeepOffscreenAcrossRestart = true;
+        config.Target.ProcessName = "Notepad";
+
+        var session = new Session(
+            new PulseRecipe { Keys = new[] { 0x10 } },
+            new FakeLocator(),
+            new FakePulseSender(),
+            _ => new FakeGovernor(),
+            new FakePlacement(),
+            _ => { });
+
+        session.ApplyConfig(config);
+
+        Assert.Equal(45, session.IntervalSec);
+        Assert.Equal(7, session.JitterPercent);
+        Assert.Equal("Notepad", session.TargetProcessName);
+        Assert.False(session.SkipWhenForeground);
+        Assert.False(session.AllowMoveOffscreen);
+        Assert.True(session.KeepOffscreenAcrossRestart);
+        Assert.Equal(ProcessPriorityClass.AboveNormal, session.Policy.Priority);
+        Assert.False(session.Policy.EcoQoS);
+        Assert.Equal(new[] { 0x01, 0x10 }, session.Recipe.Keys.ToArray());
+        Assert.Equal(150, session.Recipe.HoldMs);
+        Assert.Equal(30, session.Recipe.FocusWaitMs);
+    }
+
     static async Task<bool> WaitFor(Func<bool> condition, int timeoutMs)
     {
         long deadline = Environment.TickCount64 + timeoutMs;
