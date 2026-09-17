@@ -50,6 +50,7 @@ internal sealed class Session : IAsyncDisposable
     public SessionState State { get; private set; } = SessionState.Detached;
     public int IntervalSec { get; set; } = 30;
     public int ReattachPollMs { get; set; } = 2000;
+    public string TargetProcessName { get; set; } = ProcessName;
     public GameWindow? Target => target;
     public bool IsRunning => State is SessionState.Running or SessionState.Reattaching;
 
@@ -62,7 +63,7 @@ internal sealed class Session : IAsyncDisposable
 
     bool AttachLocked()
     {
-        target = locator.Find(ProcessName);
+        target = locator.Find(TargetProcessName);
         if (target == null)
         {
             State = SessionState.WaitingForTarget;
@@ -272,7 +273,7 @@ internal sealed class Session : IAsyncDisposable
 
         while (!ct.IsCancellationRequested)
         {
-            GameWindow? found = locator.Find(ProcessName);
+            GameWindow? found = locator.Find(TargetProcessName);
             if (found != null && found.IsAlive)
             {
                 await gate.WaitAsync();
