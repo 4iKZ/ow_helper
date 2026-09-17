@@ -58,30 +58,22 @@ public class TrayStatusMapperTests
     }
 
     [Fact]
-    public void Headline_IncludesStateAndPid()
+    public void TrayText_UsesFriendlyWordsAndPulseCount()
     {
-        string headline = TrayStatusMapper.Headline(Status(SessionState.Running, last: DateTimeOffset.Now.AddSeconds(-12)));
+        string text = TrayStatusMapper.TrayText(Status(SessionState.Running));
 
-        Assert.Contains("运行中", headline);
-        Assert.Contains("PID 1234", headline);
-        Assert.Contains("12 秒前脉冲", headline);
+        Assert.Contains("正在挂机", text);
+        Assert.Contains("已按键 12 次", text);
+        Assert.DoesNotContain("PID", text);
+        Assert.DoesNotContain("脉冲", text);
     }
 
     [Fact]
-    public void Headline_WithPartialFailure_MarksItVisible()
+    public void TrayText_IsTrimmedForWindowsTrayLimit()
     {
-        string headline = TrayStatusMapper.Headline(Status(SessionState.Running, partial: true));
+        string text = TrayStatusMapper.TrayText(Status(SessionState.WaitingForTarget, pid: null));
 
-        Assert.Contains("部分失败", headline);
-    }
-
-    [Theory]
-    [InlineData(-30, "30 秒前脉冲")]
-    [InlineData(-120, "2 分钟前脉冲")]
-    [InlineData(-7200, "2 小时前脉冲")]
-    public void Ago_FormatsRelativeTime(int secondsAgo, string expected)
-    {
-        Assert.Equal(expected, TrayStatusMapper.Ago(DateTimeOffset.Now.AddSeconds(secondsAgo)));
+        Assert.True(text.Length <= 63);
     }
 
     [Fact]
@@ -93,4 +85,3 @@ public class TrayStatusMapperTests
         Assert.True(icon.Height >= 16);
     }
 }
-

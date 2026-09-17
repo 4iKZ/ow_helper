@@ -18,13 +18,13 @@ internal sealed class TrayApplicationContext : ApplicationContext
     readonly ToolStripMenuItem statusItem;
     readonly ToolStripMenuItem toggleItem;
     readonly ToolStripMenuItem offscreenItem;
-    StatusForm? statusForm;
+    MainForm? mainForm;
     Color lastIconColor = Color.Empty;
 
     public TrayApplicationContext()
     {
         log = new AppLog(AppLog.DefaultFilePath());
-        log.Write(new LogEntry(DateTimeOffset.Now, LogLevel.Information, "APP_START", Message: "tray"));
+        log.Write(new LogEntry(DateTimeOffset.Now, LogLevel.Information, "APP_START", Message: "desktop"));
 
         List<string> problems;
         AppConfig config = AppConfig.Load(AppConfig.DefaultPath, out problems);
@@ -59,39 +59,40 @@ internal sealed class TrayApplicationContext : ApplicationContext
         controller = new TrayController(session, log, config);
 
         statusItem = new ToolStripMenuItem("…") { Enabled = false };
-        toggleItem = new ToolStripMenuItem("开始", null, async (s, e) =>
+        var openItem = new ToolStripMenuItem("打开主窗口", null, (s, e) => ShowMainWindow());
+        toggleItem = new ToolStripMenuItem("开始挂机", null, async (s, e) =>
         {
             if (controller.Session.IsRunning) await controller.StopAsync();
             else await controller.StartAsync();
             Refresh();
         });
-        offscreenItem = new ToolStripMenuItem("移出屏幕", null, async (s, e) =>
+        offscreenItem = new ToolStripMenuItem("隐藏游戏窗口", null, async (s, e) =>
         {
             await controller.ToggleOffscreenAsync();
             Refresh();
         });
-        var reattachItem = new ToolStripMenuItem("重新检测 / 重挂", null, async (s, e) =>
+        var reattachItem = new ToolStripMenuItem("重新连接游戏", null, async (s, e) =>
         {
             await controller.ReattachAsync();
             Refresh();
         });
-        var statusWindowItem = new ToolStripMenuItem("打开状态窗口", null, (s, e) => ShowStatusWindow());
         var settingsItem = new ToolStripMenuItem("设置…", null, (s, e) => ShowSettings());
-        var logsItem = new ToolStripMenuItem("打开日志文件夹", null, (s, e) => controller.OpenLogFolder());
-        var configItem = new ToolStripMenuItem("打开配置文件", null, (s, e) => controller.OpenConfigFile());
-        var exitItem = new ToolStripMenuItem("退出（恢复资源与窗口）", null, async (s, e) => await ExitAsync());
+        var logsItem = new ToolStripMenuItem("打开运行记录", null, (s, e) => controller.OpenLogFolder());
+        var configItem = new ToolStripMenuItem("打开设置文件", null, (s, e) => controller.OpenConfigFile());
+        var exitItem = new ToolStripMenuItem("退出（恢复游戏设置）", null, async (s, e) => await ExitAsync());
 
         menu = new ContextMenuStrip { Renderer = new PaperMenuRenderer(), BackColor = Palette.Panel };
         menu.Items.AddRange(new ToolStripItem[]
         {
             statusItem,
             new ToolStripSeparator(),
+            openItem,
+            new ToolStripSeparator(),
             toggleItem,
             offscreenItem,
             reattachItem,
-            statusWindowItem,
-            settingsItem,
             new ToolStripSeparator(),
+            settingsItem,
             logsItem,
             configItem,
             new ToolStripSeparator(),
@@ -101,28 +102,29 @@ internal sealed class TrayApplicationContext : ApplicationContext
         notifyIcon = new NotifyIcon
         {
             Icon = TrayIconFactory.Create(Palette.StatusStopped),
-            Text = "OW Helper",
+            Text = "OW 助手",
             ContextMenuStrip = menu,
             Visible = true,
         };
-        notifyIcon.DoubleClick += (s, e) => ShowStatusWindow();
+        notifyIcon.DoubleClick += (s, e) => ShowMainWindow();
 
         timer = new Timer { Interval = 1000 };
         timer.Tick += (s, e) => Refresh();
         timer.Start();
 
         _ = controller.AttachAsync();
+        ShowMainWindow();
         Refresh();
     }
 
     void Refresh()
     {
         TrayStatus status = controller.Snapshot();
-        string headline = TrayStatusMapper.Headline(status);
-        statusItem.Text = headline;
-        notifyIcon.Text = TrimToTrayLimit($"OW Helper — {headline}");
-        toggleItem.Text = controller.Session.IsRunning ? "停止" : "开始";
-        offscreenItem.Text = controller.Session.IsOffscreen ? "还原窗口" : "移出屏幕";
+        string trayText = TrayStatusMapper.TrayText(status);
+        statusItem.Text = trayText;
+        notifyIcon.Text = trayText;
+        toggleItem.Text = controller.Session.IsRunning ? "停止挂机" : "开始挂机";
+        offscreenItem.Text = controller.Session.IsOffscreen ? "显示游戏窗口" : "隐藏游戏窗口";
 
         Color color = TrayStatusMapper.StatusColor(status);
         if (color != lastIconColor)
@@ -133,7 +135,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             lastIconColor = color;
         }
 
-        statusForm?.RefreshStatus(status);
+        mainForm?.RefreshStatus();
         ShowPendingNotices();
     }
 
@@ -149,17 +151,25 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
         string text = string.Join(Environment.NewLine, pending);
         if (text.Length > 250) text = text[..249] + "…";
-        notifyIcon.BalloonTipTitle = "OW Helper";
+        notifyIcon.BalloonTipTitle = "OW 助手";
         notifyIcon.BalloonTipText = text;
         notifyIcon.ShowBalloonTip(5000);
     }
 
-    void ShowStatusWindow()
+    void ShowMainWindow()
     {
-        statusForm ??= new StatusForm(controller);
-        statusForm.RefreshStatus(controller.Snapshot());
-        statusForm.Show();
-        statusForm.BringToFront();
+        if (mainForm == null || mainForm.IsDisposed)
+        {
+            mainForm = new MainForm(controller);
+            MainForm = mainForm;
+        }
+        mainForm.Show();
+        if (mainForm.WindowState == FormWindowState.Minimized)
+        {
+            mainForm.WindowState = FormWindowState.Normal;
+        }
+        mainForm.BringToFront();
+        mainForm.RefreshStatus();
     }
 
     void ShowSettings()
@@ -173,7 +183,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     {
         timer.Stop();
         notifyIcon.Visible = false;
-        statusForm?.CloseForExit();
+        mainForm?.CloseForExit();
         await controller.ShutdownAsync();
         notifyIcon.Dispose();
         ExitThread();
@@ -185,8 +195,5 @@ internal sealed class TrayApplicationContext : ApplicationContext
     }
 
     static bool ConfirmRecovery(string prompt)
-        => MessageBox.Show(prompt, "OW Helper", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
-
-    static string TrimToTrayLimit(string text) => text.Length <= 63 ? text : text[..62] + "…";
+        => MessageBox.Show(prompt, "OW 助手", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
 }
-
