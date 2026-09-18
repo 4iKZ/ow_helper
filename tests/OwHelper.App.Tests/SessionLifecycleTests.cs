@@ -81,13 +81,16 @@ public class SessionLifecycleTests
             return new WindowPlacementResult(true, "moved", null);
         }
 
-        public WindowPlacementResult Restore()
+        public WindowPlacementResult Restore(bool activate = false)
         {
             RestoreCalls++;
+            LastRestoreActivate = activate;
             IsOffscreen = false;
             hidden = false;
             return new WindowPlacementResult(true, "restored", null);
         }
+
+        public bool? LastRestoreActivate { get; private set; }
 
         public bool TryGetOriginalPosition(out int left, out int top)
         {
@@ -364,6 +367,20 @@ public class SessionLifecycleTests
         Assert.Null(applied);
         Assert.Equal(45, session.IntervalSec);
         Assert.Equal(KeyNames.Parse("e"), session.Recipe.Keys[0]);
+    }
+
+    [Fact]
+    public async Task S17_ToggleOffscreen_RestoresWithActivation()
+    {
+        await using var h = new Harness();
+        await h.Session.AttachAsync();
+        await h.Session.ToggleOffscreenAsync();
+        Assert.True(h.Placement.IsOffscreen);
+
+        await h.Session.ToggleOffscreenAsync();
+
+        Assert.Equal(true, h.Placement.LastRestoreActivate);
+        Assert.False(h.Placement.NeedsRestore);
     }
 
     [Fact]

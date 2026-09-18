@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Threading;
 using OwHelper.TestSupport;
 using Xunit;
 
@@ -133,7 +134,8 @@ public class WindowPlacementTests
         var placement = new WindowPlacement(
             window.Handle, self.Id,
             moveTo: (_, _, _, _) => new WindowPlacementResult(true, "moved", null),
-            restoreStyle: (_, _, _) => new WindowStyleResult(false, "refused", 5, 0));
+            restoreStyle: (_, _, _) => new WindowStyleResult(false, "refused", 5, 0),
+            ensureShown: (_, _) => true);
 
         Assert.True(placement.MoveOffscreen(hideFromTaskbar: true).Success);
         var restore = placement.Restore();
@@ -157,7 +159,8 @@ public class WindowPlacementTests
             moveTo: (_, _, _, _) => ++attempts == 2
                 ? new WindowPlacementResult(false, "SetWindowPos failed", 5)
                 : new WindowPlacementResult(true, "moved", null),
-            restoreStyle: (_, _, _) => new WindowStyleResult(true, "ok", null, 0));
+            restoreStyle: (_, _, _) => new WindowStyleResult(true, "ok", null, 0),
+            ensureShown: (_, _) => true);
 
         Assert.True(placement.MoveOffscreen().Success);
         Assert.True(placement.PositionRestorePending);
@@ -181,7 +184,8 @@ public class WindowPlacementTests
         var placement = new WindowPlacement(
             window.Handle, self.Id,
             moveTo: (_, _, _, _) => new WindowPlacementResult(false, "SetWindowPos failed", 5),
-            restoreStyle: (_, _, _) => new WindowStyleResult(false, "refused", 5, 0));
+            restoreStyle: (_, _, _) => new WindowStyleResult(false, "refused", 5, 0),
+            ensureShown: (_, _) => true);
 
         var move = placement.MoveOffscreen(hideFromTaskbar: true);
 
@@ -189,6 +193,87 @@ public class WindowPlacementTests
         Assert.True(placement.StyleRestorePending);
         Assert.True(placement.NeedsRestore);
         Assert.False(placement.IsOffscreen);
+    }
+
+    [Fact]
+    public void Restore_ForwardsActivateFlag_ToEnsureShown()
+    {
+        using var window = new FakeWindow();
+        using var self = Process.GetCurrentProcess();
+        bool? seenActivate = null;
+        var placement = new WindowPlacement(
+            window.Handle, self.Id,
+            moveTo: (_, _, _, _) => new WindowPlacementResult(true, "moved", null),
+            restoreStyle: (_, _, _) => new WindowStyleResult(true, "ok", null, 0),
+            ensureShown: (_, activate) => { seenActivate = activate; return true; });
+
+        Assert.True(placement.MoveOffscreen().Success);
+        WindowProbe.Minimize(window.Handle);
+        Assert.True(WindowProbe.IsMinimized(window.Handle));
+
+        _ = placement.Restore(activate: false);
+        Assert.Equal(false, seenActivate);
+
+        Assert.True(placement.MoveOffscreen().Success);
+        WindowProbe.Minimize(window.Handle);
+
+        _ = placement.Restore(activate: true);
+        Assert.Equal(true, seenActivate);
+    }
+
+    [Fact]
+    public void Restore_NoActivate_DoesNotStealForeground()
+    {
+        using var background = new FakeWindow(topLevel: true);
+        using var target = new FakeWindow(topLevel: true);
+        using var self = Process.GetCurrentProcess();
+        var placement = new WindowPlacement(target.Handle, self.Id);
+        Assert.True(placement.MoveOffscreen(hideFromTaskbar: false).Success);
+        WindowProbe.Minimize(target.Handle);
+        Assert.True(WindowProbe.IsMinimized(target.Handle));
+
+        if (!InteractiveForegroundAvailable(background.Handle)) return;
+
+        var restore = placement.Restore(activate: false);
+
+        Assert.True(restore.Success, restore.Message);
+        Assert.False(WindowProbe.IsMinimized(target.Handle));
+        Assert.Equal(background.Handle, WindowProbe.ForegroundWindow());
+    }
+
+    [Fact]
+    public void Restore_Activate_BringsWindowToForeground()
+    {
+        using var background = new FakeWindow(topLevel: true);
+        using var target = new FakeWindow(topLevel: true);
+        using var self = Process.GetCurrentProcess();
+        var placement = new WindowPlacement(target.Handle, self.Id);
+        Assert.True(placement.MoveOffscreen(hideFromTaskbar: false).Success);
+        WindowProbe.Minimize(target.Handle);
+        if (!InteractiveForegroundAvailable(background.Handle)) return;
+
+        var restore = placement.Restore(activate: true);
+
+        Assert.True(restore.Success, restore.Message);
+        Assert.Equal(target.Handle, WindowProbe.ForegroundWindow());
+        WindowProbe.TrySetForeground(background.Handle);
+    }
+
+    static bool InteractiveForegroundAvailable(IntPtr background)
+    {
+        // 无交互桌面的会话（如 CI 服务会话）既拿不到前台权限，也恢复不了最小化窗口：跳过前台断言。
+        if (!CanRestoreMinimized()) return false;
+        return WindowProbe.TrySetForeground(background);
+    }
+
+    static bool CanRestoreMinimized()
+    {
+        using var scratch = new FakeWindow(topLevel: true);
+        WindowProbe.Minimize(scratch.Handle);
+        if (!WindowProbe.IsMinimized(scratch.Handle)) return false;
+        WindowStyle.EnsureShown(scratch.Handle, activate: true);
+        Thread.Sleep(200);
+        return !WindowProbe.IsMinimized(scratch.Handle);
     }
 }
 

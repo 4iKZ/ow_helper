@@ -23,23 +23,26 @@ public sealed class WindowPlacement
     readonly int pid;
     readonly Func<IntPtr, int, int, int, WindowPlacementResult> moveTo;
     readonly Func<IntPtr, int, long, WindowStyleResult> restoreStyle;
+    readonly Func<IntPtr, bool, bool> ensureShown;
     Native.RECT saved;
     long originalExStyle;
 
     public WindowPlacement(IntPtr hwnd, int pid)
-        : this(hwnd, pid, WindowMover.MoveTo, WindowStyle.RestoreStyle)
+        : this(hwnd, pid, WindowMover.MoveTo, WindowStyle.RestoreStyle, WindowStyle.EnsureShown)
     {
     }
 
     internal WindowPlacement(
         IntPtr hwnd, int pid,
         Func<IntPtr, int, int, int, WindowPlacementResult> moveTo,
-        Func<IntPtr, int, long, WindowStyleResult> restoreStyle)
+        Func<IntPtr, int, long, WindowStyleResult> restoreStyle,
+        Func<IntPtr, bool, bool> ensureShown)
     {
         this.hwnd = hwnd;
         this.pid = pid;
         this.moveTo = moveTo;
         this.restoreStyle = restoreStyle;
+        this.ensureShown = ensureShown;
     }
 
     public IntPtr Handle => hwnd;
@@ -86,7 +89,7 @@ public sealed class WindowPlacement
         {
             if (WindowStyle.IsMinimized(hwnd))
             {
-                WindowStyle.EnsureShown(hwnd);
+                ensureShown(hwnd, false);
             }
             WindowStyleResult style = WindowStyle.HideFromTaskbar(hwnd, pid);
             if (!style.Success)
@@ -117,7 +120,7 @@ public sealed class WindowPlacement
         return moved;
     }
 
-    public WindowPlacementResult Restore()
+    public WindowPlacementResult Restore(bool activate = false)
     {
         if (!NeedsRestore)
         {
@@ -137,7 +140,7 @@ public sealed class WindowPlacement
 
         if (WindowStyle.IsMinimized(hwnd))
         {
-            WindowStyle.EnsureShown(hwnd);
+            ensureShown(hwnd, activate);
         }
 
         string message = "";

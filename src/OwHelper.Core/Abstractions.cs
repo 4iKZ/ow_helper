@@ -27,6 +27,6 @@ public interface IWindowPlacementController
     bool NeedsRestore { get; }
     long OriginalExStyle { get; }
     WindowPlacementResult MoveOffscreen(IntPtr hwnd, int pid, bool hideFromTaskbar);
-    WindowPlacementResult Restore();
+    WindowPlacementResult Restore(bool activate = false);
     bool TryGetOriginalPosition(out int left, out int top);
 }

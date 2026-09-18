@@ -9,7 +9,8 @@ public static class WindowStyle
 {
     public static bool IsMinimized(IntPtr hwnd) => Native.IsIconic(hwnd);
 
-    public static bool EnsureShown(IntPtr hwnd) => Native.ShowWindow(hwnd, Native.SW_RESTORE);
+    public static bool EnsureShown(IntPtr hwnd, bool activate)
+        => Native.ShowWindow(hwnd, activate ? Native.SW_RESTORE : Native.SW_SHOWNOACTIVATE);
 
     public static WindowStyleResult HideFromTaskbar(IntPtr hwnd, int pid)
     {

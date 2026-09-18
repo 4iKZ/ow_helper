@@ -42,6 +42,7 @@ internal static class Native
     internal const long WS_EX_TOOLWINDOW = 0x00000080L;
     internal const long WS_EX_APPWINDOW = 0x00040000L;
     internal const int SW_RESTORE = 9;
+    internal const int SW_SHOWNOACTIVATE = 4;
     internal const uint PROCESS_POWER_THROTTLING_CURRENT_VERSION = 1;
     internal const uint PROCESS_POWER_THROTTLING_EXECUTION_SPEED = 0x1;
 

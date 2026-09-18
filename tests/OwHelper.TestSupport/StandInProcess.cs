@@ -88,6 +88,20 @@ public static class WindowProbe
     [System.Runtime.InteropServices.DllImport("user32.dll")]
     static extern bool IsIconic(IntPtr hWnd);
 
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    static extern IntPtr GetForegroundWindow();
+
+    public static bool TrySetForeground(IntPtr hwnd)
+    {
+        if (SetForegroundWindow(hwnd)) return true;
+        return GetForegroundWindow() == hwnd;
+    }
+
+    public static IntPtr ForegroundWindow() => GetForegroundWindow();
+
     public static long GetExStyle(IntPtr hwnd)
         => IntPtr.Size == 8 ? GetWindowLongPtr64(hwnd, -20).ToInt64() : GetWindowLong32(hwnd, -20);
 

@@ -33,10 +33,10 @@ public sealed class WindowPlacementController : IWindowPlacementController
         return current.MoveOffscreen(hideFromTaskbar);
     }
 
-    public WindowPlacementResult Restore()
+    public WindowPlacementResult Restore(bool activate = false)
         => current == null
             ? new WindowPlacementResult(true, "nothing to restore", null)
-            : current.Restore();
+            : current.Restore(activate);
 
     public bool TryGetOriginalPosition(out int left, out int top)
     {

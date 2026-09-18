@@ -228,7 +228,7 @@ public sealed class Session : IAsyncDisposable
             }
             if (placement.NeedsRestore)
             {
-                WindowPlacementResult result = placement.Restore();
+                WindowPlacementResult result = placement.Restore(activate: true);
                 output(result.Success ? "  OW 窗口已还原" : $"  窗口还原失败: {result.Message}{ErrorCode(result.NativeError)}");
                 LogPlacement("WINDOW_RESTORE", result, current);
                 if (!placement.NeedsRestore) ClearPlacementState();
