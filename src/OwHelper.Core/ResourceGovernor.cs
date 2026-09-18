@@ -16,7 +16,7 @@ public sealed class ResourceGovernor : IResourceGovernor
 
     public ResourceGovernor(Process process) => this.process = process;
 
-    public ResourceSnapshot? Snapshot => priorityCaptured
+    internal ResourceSnapshot? Snapshot => priorityCaptured
         ? new ResourceSnapshot(originalPriority, true)
         : null;
 

@@ -8,27 +8,27 @@ Windows 后台输入调度器：让《守望先锋》在后台自动按设定按
 ## 命令
 
 - 构建：`dotnet build ow_helper.sln -c Release`（必须 0 警告；Core/App/Desktop 已开 TreatWarningsAsErrors）
-- 测试：`dotnet test ow_helper.sln -c Release`（193 项：单元 + 假窗口 + 实机替身集成 + 架构红线）
+- 测试：`dotnet test ow_helper.sln -c Release`（以 CI 实际结果为准：单元 + 假窗口 + 实机替身集成 + 架构红线）
 - 桌面版：`src\OwHelper.Desktop\bin\Release\net8.0-windows\OwHelper.Desktop.exe`
 - 控制台版：`src\OwHelper\bin\Release\net8.0-windows\OwHelper.exe [按键,逗号分隔] [间隔秒]`
-- 发布：`scripts\publish.ps1` → `artifacts\OwHelper-win-x64`；安装包：`installer\OwHelper.iss`（ISCC 编译，需自包含发布目录）；诊断实验：`BgKeyProbe.exe`
-- 用户数据：`%LOCALAPPDATA%\OwHelper\`（config.json / runtime-state.json / logs\）
+- 发布：`scripts\publish.ps1` → `artifacts\OwHelper-win-x64`；安装包源：`scripts\publish-installer.ps1`；安装包：`installer\OwHelper.iss`（ISCC 编译，基于自包含纯净桌面发布目录）；诊断实验：`BgKeyProbe.exe`
+- 用户数据：`%LOCALAPPDATA%\OwHelper\`（config.json / runtime-state.json / update-result.json / logs\）
 
 ## 技术栈
 
-.NET 8（net8.0-windows）· WinForms（仅桌面前端）· xUnit · GitHub Actions（windows-latest）
+.NET 8（net8.0-windows）· WinForms（仅桌面上层）· xUnit · GitHub Actions（windows-latest）
 
 ## 目录与约定
 
 - `src/OwHelper.Core`：**唯一 P/Invoke 层**（Win32、目标发现/校验、脉冲、资源、窗口样式、GPU 检测）。app 程序集不得出现 `DllImport`（架构测试强制）。
-- `src/OwHelper.App`：`Session` 状态机（运行期状态唯一所有者）、配置、日志、崩溃恢复、`AppStartup`（前端共用启动序列）、`Session.ApplyConfig`（配置→会话唯一映射点；新增设置项只改 `AppConfig` + `ApplyConfig`）。
+- `src/OwHelper.App`：`Session` 状态机（运行期状态唯一所有者）、配置、日志、崩溃恢复、更新管理与完整性校验、`AppStartup`（前端共用启动序列）、`Session.ApplyConfig`（配置→会话唯一映射点；新增设置项只改 `AppConfig` + `ApplyConfig`）。
 - 前端：`OwHelper.Desktop`（面向普通用户，文案走 `PlainLanguage`，不要引入技术词）/ `OwHelper`（技术控制台，保留术语）。
-- 测试：`tests/OwHelper.Core.Tests`（单元 + 架构红线）、`tests/OwHelper.App.Tests`（会话生命周期 + 实机替身）、`TestSupport*`（FakeWindow / 替身进程）。
-- 约定：每个提交可构建、测试全绿、独立推送；**行为契约不得随手改**——脉冲序列 `SETFOCUS→按键→KILLFOCUS`、老板键语义、控制台文案与退出码、日志事件名、config/runtime-state 文件格式。
+- 测试：`tests/OwHelper.Core.Tests`（单元 + 架构红线）、`tests/OwHelper.App.Tests`（会话生命周期 + 实机替身 + 更新安全校验 + 安装包纯净守护）、`TestSupport*`（FakeWindow / 替身进程）。
+- 约定：每个提交可构建、测试全绿、独立推送；**行为契约不得随手改**——脉冲序列 `SETFOCUS→按键→KILLFOCUS`、老板键语义、控制台文案与退出码、日志事件名、config/runtime-state/update-result 文件格式。
 - 文档：`docs/specs`、`docs/plans` 是历史设计记录；**现役说明以 README 为准**。
 
 ## 当前状态与下一步
 
-- 版本 1.1.3（MIT；GitHub Release 双包 + 安装包 + SHA256）；彻底消除 Win11 高 DPI 与双缓冲未初始化导致的倒角黑边、纯黑底缝与脏矩形残留，全控件动态继承容器背景实现丝滑抗锯齿。
-- 发布：发版前改 `Directory.Build.props` 的 `Version`，推送 `tag v*` 后 `release.yml` 自动构建双包、安装包并建 Release。
-- 待办：① 4 小时 soak 与"游戏最小化"实测（用户侧，含 NoActivate 真实前台行为）② `ResourceGovernor.Snapshot` 公开面去留（`docs/plans/2026-09-18-architecture-review.md` 发现 9）。
+- 版本 1.2.0（MIT；GitHub Release 双包 + 独立纯净安装包 + SHA256SUMS）；构建工业级更新安全体系（SHA-256 强制摘要校验、GitHub 唯一信任锚、下载期间无打扰挂机、安全退出统一生命周期、安装上下文与自定义目录自适应、批处理错误码与升级结果跟踪、Release Tag 强一致门禁、桌面纯净打包源、WinForms 原生 DPI 缩放）。
+- 发布：发版前改 `Directory.Build.props` 的 `Version`，推送 `tag v*` 后 `release.yml` 自动执行 Tag-Version 校验、构建双包、安装包并建 Release。
+- 待办：4 小时 soak 与"游戏最小化"实测（用户侧，含 NoActivate 真实前台行为）。
