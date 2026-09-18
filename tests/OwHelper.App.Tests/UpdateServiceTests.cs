@@ -33,7 +33,7 @@ public class UpdateServiceTests
     }
 
     [Fact]
-    public void ParseReleaseJson_ValidNewerRelease_ReturnsUpdateInfo()
+    public void ParseReleaseJson_ValidNewerReleaseWithDigest_ReturnsUpdateAvailable()
     {
         string json = """
         {
@@ -46,11 +46,14 @@ public class UpdateServiceTests
             "published_at": "2026-09-18T10:00:00Z",
             "assets": [
                 {
+                    "id": 12345,
                     "name": "OwHelper-Setup-1.2.0.exe",
                     "browser_download_url": "https://github.com/4iKZ/ow_helper/releases/download/v1.2.0/OwHelper-Setup-1.2.0.exe",
-                    "size": 65432100
+                    "size": 65432100,
+                    "digest": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
                 },
                 {
+                    "id": 67890,
                     "name": "OwHelper-win-x64-1.2.0.zip",
                     "browser_download_url": "https://github.com/4iKZ/ow_helper/releases/download/v1.2.0/OwHelper-win-x64-1.2.0.zip",
                     "size": 70123400
@@ -59,20 +62,52 @@ public class UpdateServiceTests
         }
         """;
 
-        UpdateInfo? info = UpdateService.ParseReleaseJson(json, "1.1.0");
+        UpdateCheckResult res = UpdateService.ParseReleaseJson(json, "1.1.0");
 
-        Assert.NotNull(info);
-        Assert.Equal("1.2.0", info.Version);
-        Assert.Equal("v1.2.0", info.TagName);
-        Assert.Equal("OW 助手 1.2.0 发布", info.Title);
-        Assert.Contains("修复了若干问题", info.ReleaseNotes);
-        Assert.Equal("https://github.com/4iKZ/ow_helper/releases/download/v1.2.0/OwHelper-Setup-1.2.0.exe", info.SetupDownloadUrl);
-        Assert.Equal("https://github.com/4iKZ/ow_helper/releases/download/v1.2.0/OwHelper-win-x64-1.2.0.zip", info.ZipDownloadUrl);
-        Assert.Equal(65432100, info.SetupSizeBytes);
+        Assert.Equal(UpdateCheckStatus.UpdateAvailable, res.Status);
+        Assert.NotNull(res.Update);
+        Assert.Equal("1.2.0", res.Update.Version);
+        Assert.Equal("v1.2.0", res.Update.TagName);
+        Assert.Equal("OW 助手 1.2.0 发布", res.Update.Title);
+        Assert.Contains("修复了若干问题", res.Update.ReleaseNotes);
+        Assert.Equal("https://github.com/4iKZ/ow_helper/releases/download/v1.2.0/OwHelper-Setup-1.2.0.exe", res.Update.SetupDownloadUrl);
+        Assert.Equal("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", res.Update.SetupSha256);
+        Assert.Equal(12345, res.Update.SetupAssetId);
+        Assert.Equal("https://github.com/4iKZ/ow_helper/releases/download/v1.2.0/OwHelper-win-x64-1.2.0.zip", res.Update.ZipDownloadUrl);
+        Assert.Equal(65432100, res.Update.SetupSizeBytes);
+        Assert.NotNull(res.Update.PublishedAt);
     }
 
     [Fact]
-    public void ParseReleaseJson_DraftOrPrerelease_ReturnsNull()
+    public void ParseReleaseJson_MissingDigestOrId_ReturnsManualOnly()
+    {
+        string json = """
+        {
+            "tag_name": "v1.2.0",
+            "name": "OW 助手 1.2.0 发布",
+            "body": "更新说明",
+            "draft": false,
+            "prerelease": false,
+            "html_url": "https://github.com/4iKZ/ow_helper/releases/tag/v1.2.0",
+            "assets": [
+                {
+                    "name": "OwHelper-Setup-1.2.0.exe",
+                    "browser_download_url": "https://github.com/4iKZ/ow_helper/releases/download/v1.2.0/OwHelper-Setup-1.2.0.exe",
+                    "size": 65432100
+                }
+            ]
+        }
+        """;
+
+        UpdateCheckResult res = UpdateService.ParseReleaseJson(json, "1.1.0");
+
+        Assert.Equal(UpdateCheckStatus.UpdateAvailableButManualOnly, res.Status);
+        Assert.NotNull(res.Update);
+        Assert.Contains("缺少可验证的自动安装包", res.Message);
+    }
+
+    [Fact]
+    public void ParseReleaseJson_DraftOrPrerelease_ReturnsUpToDate()
     {
         string draftJson = """
         {
@@ -90,12 +125,12 @@ public class UpdateServiceTests
         }
         """;
 
-        Assert.Null(UpdateService.ParseReleaseJson(draftJson, "1.1.0"));
-        Assert.Null(UpdateService.ParseReleaseJson(prereleaseJson, "1.1.0"));
+        Assert.Equal(UpdateCheckStatus.UpToDate, UpdateService.ParseReleaseJson(draftJson, "1.1.0").Status);
+        Assert.Equal(UpdateCheckStatus.UpToDate, UpdateService.ParseReleaseJson(prereleaseJson, "1.1.0").Status);
     }
 
     [Fact]
-    public void ParseReleaseJson_SameOrOlderVersion_ReturnsNull()
+    public void ParseReleaseJson_SameOrOlderVersion_ReturnsUpToDate()
     {
         string sameJson = """
         {
@@ -105,8 +140,8 @@ public class UpdateServiceTests
         }
         """;
 
-        Assert.Null(UpdateService.ParseReleaseJson(sameJson, "1.1.0"));
-        Assert.Null(UpdateService.ParseReleaseJson(sameJson, "1.2.0"));
+        Assert.Equal(UpdateCheckStatus.UpToDate, UpdateService.ParseReleaseJson(sameJson, "1.1.0").Status);
+        Assert.Equal(UpdateCheckStatus.UpToDate, UpdateService.ParseReleaseJson(sameJson, "1.2.0").Status);
     }
 
     [Fact]

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -62,20 +63,32 @@ internal sealed class TrayApplicationContext : ApplicationContext
                 string currentVer = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.0.0";
                 try
                 {
-                    UpdateInfo? update = await controller.UpdateService.CheckForUpdatesAsync(currentVer);
-                    if (update != null)
+                    UpdateCheckResult result = await controller.UpdateService.CheckForUpdatesAsync(currentVer, force: true);
+                    if (result.Status == UpdateCheckStatus.UpdateAvailable && result.Update != null)
                     {
-                        using var dlg = new UpdateDialog(controller, update, currentVer);
+                        using var dlg = new UpdateDialog(controller, result.Update, currentVer);
                         dlg.ShowDialog();
+                    }
+                    else if (result.Status == UpdateCheckStatus.UpdateAvailableButManualOnly && result.Update != null)
+                    {
+                        var choice = MessageBox.Show(result.Message, "检查更新", MessageBoxButtons.OKCancel, MessageBoxIcon.Information);
+                        if (choice == DialogResult.OK)
+                        {
+                            try { Process.Start(new ProcessStartInfo(result.Update.HtmlUrl) { UseShellExecute = true }); } catch { }
+                        }
+                    }
+                    else if (result.Status == UpdateCheckStatus.UpToDate)
+                    {
+                        MessageBox.Show(result.Message, "检查更新", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     }
                     else
                     {
-                        MessageBox.Show($"当前版本 v{currentVer} 已是最新版本！", "检查更新", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        MessageBox.Show(result.Message, "检查更新", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     }
                 }
-                catch (Exception ex)
+                catch
                 {
-                    MessageBox.Show($"检查更新失败: {ex.Message}\n请检查网络连接后重试。", "检查更新", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show("检查更新失败：无法连接更新服务器。\n当前版本状态未知，请稍后重试。", "检查更新", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
             }
         });

@@ -19,6 +19,7 @@ public sealed class TrayController
         Config = config;
         StartupProblems = startupProblems;
         GpuGuide = BuildGpuGuide(config, GpuEnvironment.Detect());
+        UpdateService = new UpdateService(log: log);
     }
 
     public Session Session => session;
@@ -29,7 +30,7 @@ public sealed class TrayController
 
     public string? GpuGuide { get; }
 
-    public UpdateService UpdateService { get; } = new UpdateService();
+    public UpdateService UpdateService { get; }
 
     internal static string? BuildGpuGuide(AppConfig config, IReadOnlyList<GpuInfo> gpus)
     {

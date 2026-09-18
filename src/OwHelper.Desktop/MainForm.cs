@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Threading.Tasks;
@@ -811,25 +812,43 @@ public sealed class MainForm : Form
                 SafeInvoke(() => versionBadge.Text = "正在检查更新…");
             }
 
-            UpdateInfo? update = cachedUpdateInfo ?? await controller.UpdateService.CheckForUpdatesAsync(currentVer);
+            UpdateCheckResult result = await controller.UpdateService.CheckForUpdatesAsync(currentVer, force: manual);
             if (IsDisposed) return;
 
-            if (update != null)
+            if (result.Status == UpdateCheckStatus.UpdateAvailable && result.Update != null)
             {
-                cachedUpdateInfo = update;
+                cachedUpdateInfo = result.Update;
                 SafeInvoke(() =>
                 {
-                    versionBadge.Text = $"✨ 发现新版 v{update.Version} (点击更新)";
+                    versionBadge.Text = $"✨ 新版 v{result.Update.Version}";
                     versionBadge.BackColor = Palette.AccentWash;
                     versionBadge.ForeColor = Palette.Accent;
                     if (manual)
                     {
-                        using var dialog = new UpdateDialog(controller, update, currentVer);
+                        using var dialog = new UpdateDialog(controller, result.Update, currentVer);
                         dialog.ShowDialog(this);
                     }
                 });
             }
-            else
+            else if (result.Status == UpdateCheckStatus.UpdateAvailableButManualOnly && result.Update != null)
+            {
+                cachedUpdateInfo = result.Update;
+                SafeInvoke(() =>
+                {
+                    versionBadge.Text = $"新版 v{result.Update.Version}";
+                    versionBadge.BackColor = Palette.AccentWash;
+                    versionBadge.ForeColor = Palette.Accent;
+                    if (manual)
+                    {
+                        var choice = MessageBox.Show(this, result.Message, "检查更新", MessageBoxButtons.OKCancel, MessageBoxIcon.Information);
+                        if (choice == DialogResult.OK)
+                        {
+                            try { Process.Start(new ProcessStartInfo(result.Update.HtmlUrl) { UseShellExecute = true }); } catch { }
+                        }
+                    }
+                });
+            }
+            else if (result.Status == UpdateCheckStatus.UpToDate)
             {
                 SafeInvoke(() =>
                 {
@@ -838,12 +857,23 @@ public sealed class MainForm : Form
                     versionBadge.ForeColor = Palette.InkSecondary;
                     if (manual)
                     {
-                        MessageBox.Show(this, $"当前版本 v{currentVer} 已是最新版本！", "检查更新", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        MessageBox.Show(this, result.Message, "检查更新", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                });
+            }
+            else
+            {
+                SafeInvoke(() =>
+                {
+                    versionBadge.Text = "v" + currentVer;
+                    if (manual)
+                    {
+                        MessageBox.Show(this, result.Message, "检查更新", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     }
                 });
             }
         }
-        catch (Exception ex)
+        catch
         {
             if (IsDisposed) return;
             SafeInvoke(() =>
@@ -851,7 +881,7 @@ public sealed class MainForm : Form
                 versionBadge.Text = "v" + currentVer;
                 if (manual)
                 {
-                    MessageBox.Show(this, $"检查更新失败: {ex.Message}\n请检查网络连接或稍后重试。", "检查更新", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show(this, "检查更新失败：无法连接更新服务器。\n当前版本状态未知，请稍后重试。", "检查更新", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
             });
         }

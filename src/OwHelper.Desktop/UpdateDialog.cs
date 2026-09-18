@@ -97,9 +97,13 @@ public sealed class UpdateDialog : Form
             Margin = new Padding(0, 0, 0, 4),
         };
 
+        string pubStr = info.PublishedAt.HasValue
+            ? info.PublishedAt.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+            : "未知";
+
         var metaLabel = new Label
         {
-            Text = $"发布日期：{info.PublishedAt.ToLocalTime():yyyy-MM-dd HH:mm} · 文件大小：{FormatSize(info.SetupSizeBytes)}",
+            Text = $"发布日期：{pubStr} · 文件大小：{FormatSize(info.SetupSizeBytes)}",
             Font = new Font("Microsoft YaHei UI", 8.5f),
             ForeColor = Palette.InkSecondary,
             AutoSize = true,
