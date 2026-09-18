@@ -8,6 +8,19 @@ using OwHelper.Core;
 
 namespace OwHelper;
 
+public sealed record SessionStopResult(
+    bool WasRunning,
+    ResourceRestoreResult? ResourceRestore,
+    WindowPlacementResult? WindowRestore,
+    bool Success);
+
+public sealed record SessionCleanupResult(
+    bool Stopped,
+    ResourceRestoreResult? ResourceRestore,
+    WindowPlacementResult? WindowRestore,
+    bool WindowRestorePending,
+    bool Success);
+
 public sealed class Session : IAsyncDisposable
 {
     const string ProcessName = "Overwatch";
@@ -34,6 +47,7 @@ public sealed class Session : IAsyncDisposable
     int failureStreak;
     int finished;
     int disposed;
+    SessionStopResult? lastStopResult;
 
     public Session(
         PulseRecipe recipe,
@@ -170,6 +184,7 @@ public sealed class Session : IAsyncDisposable
             }
             State = SessionState.Starting;
             Interlocked.Exchange(ref finished, 0);
+            lastStopResult = null;
             failureStreak = 0;
             RunPulseCount = 0;
             RunStartedAt = DateTimeOffset.Now;
@@ -190,13 +205,18 @@ public sealed class Session : IAsyncDisposable
         finally { gate.Release(); }
     }
 
-    public async Task StopAsync()
+    public async Task<SessionStopResult> StopAsync()
     {
         Task? toWait = null;
+        bool wasRunning = false;
         await gate.WaitAsync();
         try
         {
-            if (!IsRunning) return;
+            if (!IsRunning)
+            {
+                return lastStopResult ?? new SessionStopResult(WasRunning: false, ResourceRestore: null, WindowRestore: null, Success: true);
+            }
+            wasRunning = true;
             State = SessionState.Stopping;
             cts?.Cancel();
             toWait = loopTask;
@@ -210,7 +230,7 @@ public sealed class Session : IAsyncDisposable
         }
 
         await gate.WaitAsync();
-        try { FinishLocked(); }
+        try { return FinishLocked(wasRunning); }
         finally { gate.Release(); }
     }
 
@@ -252,19 +272,33 @@ public sealed class Session : IAsyncDisposable
         finally { gate.Release(); }
     }
 
-    public async Task CleanupAsync()
+    public async Task<SessionCleanupResult> CleanupAsync()
     {
-        await StopAsync();
+        SessionStopResult stopResult = await StopAsync();
+        ResourceRestoreResult? resRestore = stopResult.ResourceRestore;
+        WindowPlacementResult? winRestore = stopResult.WindowRestore;
+
         await gate.WaitAsync();
         try
         {
-            if (placement.NeedsRestore)
+            if (placement != null && placement.NeedsRestore)
             {
-                WindowPlacementResult result = placement.Restore();
-                output(result.Success ? "  OW 窗口已还原" : $"  窗口还原失败: {result.Message}{ErrorCode(result.NativeError)}");
-                LogPlacement("WINDOW_RESTORE", result, target);
+                WindowPlacementResult extraRestore = placement.Restore();
+                output(extraRestore.Success ? "  OW 窗口已还原" : $"  窗口还原失败: {extraRestore.Message}{ErrorCode(extraRestore.NativeError)}");
+                LogPlacement("WINDOW_RESTORE", extraRestore, target);
                 if (!placement.NeedsRestore) ClearPlacementState();
+                winRestore = extraRestore;
             }
+
+            bool windowRestorePending = placement != null && placement.NeedsRestore;
+            bool success = stopResult.Success && !windowRestorePending && (winRestore == null || winRestore.Success);
+
+            return new SessionCleanupResult(
+                Stopped: true,
+                ResourceRestore: resRestore,
+                WindowRestore: winRestore,
+                WindowRestorePending: windowRestorePending,
+                Success: success);
         }
         finally { gate.Release(); }
     }
@@ -476,25 +510,32 @@ public sealed class Session : IAsyncDisposable
         return false;
     }
 
-    async Task FinishAsync()
+    async Task<SessionStopResult> FinishAsync()
     {
         await gate.WaitAsync();
-        try { FinishLocked(); }
+        try { return FinishLocked(wasRunning: true); }
         finally { gate.Release(); }
     }
 
-    void FinishLocked()
+    SessionStopResult FinishLocked(bool wasRunning = true)
     {
-        if (Interlocked.Exchange(ref finished, 1) != 0) return;
+        if (Interlocked.Exchange(ref finished, 1) != 0)
+        {
+            return lastStopResult ?? new SessionStopResult(wasRunning, null, null, true);
+        }
+        ResourceRestoreResult? resRestore = null;
         if (governor != null)
         {
             ResourceRestoreResult restored = governor.Restore();
+            resRestore = restored;
             output($"  资源恢复：{Describe("已恢复", "CPU 优先级", restored.Priority)}；{Describe("已恢复", "EcoQoS", restored.Power)}");
             LogResourceRestore(restored);
         }
-        if (placement.NeedsRestore)
+        WindowPlacementResult? winRestore = null;
+        if (placement != null && placement.NeedsRestore)
         {
             WindowPlacementResult result = placement.Restore();
+            winRestore = result;
             output(result.Success ? "  OW 窗口已还原" : $"  窗口还原失败: {result.Message}{ErrorCode(result.NativeError)}");
             LogPlacement("WINDOW_RESTORE", result, target);
             if (!placement.NeedsRestore) ClearPlacementState();
@@ -503,6 +544,11 @@ public sealed class Session : IAsyncDisposable
         State = current != null && current.IsAlive ? SessionState.Ready : SessionState.WaitingForTarget;
         Log(LogLevel.Information, "SESSION_STOP", pid: current == null ? null : (int)current.Pid, pulseIndex: pulseCount);
         output("  ■ 挂机已停止");
+
+        bool success = (resRestore == null || resRestore.Success) && (winRestore == null || winRestore.Success);
+        var resultStop = new SessionStopResult(wasRunning, resRestore, winRestore, success);
+        lastStopResult = resultStop;
+        return resultStop;
     }
 
     public async ValueTask DisposeAsync()

@@ -14,6 +14,7 @@ public sealed class UpdateDialog : Form
     readonly TrayController controller;
     readonly UpdateInfo info;
     readonly string currentVersion;
+    readonly Func<VerifiedUpdatePackage, InstallTarget, Task> installVerifiedPackageAsync;
 
     readonly ProgressBar progressBar = new ProgressBar();
     readonly Label statusLabel = new Label();
@@ -24,11 +25,16 @@ public sealed class UpdateDialog : Form
     CancellationTokenSource? cts;
     bool isDownloading;
 
-    public UpdateDialog(TrayController controller, UpdateInfo info, string currentVersion)
+    public UpdateDialog(
+        TrayController controller,
+        UpdateInfo info,
+        string currentVersion,
+        Func<VerifiedUpdatePackage, InstallTarget, Task>? installVerifiedPackageAsync = null)
     {
         this.controller = controller;
         this.info = info;
         this.currentVersion = currentVersion;
+        this.installVerifiedPackageAsync = installVerifiedPackageAsync ?? controller.InstallVerifiedPackageAsync ?? throw new InvalidOperationException("未配置更新安装回调。");
 
         Text = "发现新版本 - OW 助手";
         BackColor = Palette.Paper;
@@ -337,9 +343,18 @@ public sealed class UpdateDialog : Form
             await controller.StopAsync();
         }
 
-        statusLabel.Text = "即将退出当前程序并启动更新安装器...";
-        await Task.Delay(1000);
-        UpdateService.ExecuteInstallerAndExit(package.FilePath, silent: true);
+        statusLabel.Text = "准备安装更新并安全退出程序...";
+        string curExe = Environment.ProcessPath ?? UpdateService.StandardExecutablePath;
+        string curDir = Path.GetDirectoryName(curExe) ?? UpdateService.StandardInstallDirectory;
+        var target = new InstallTarget(
+            TargetDirectory: UpdateService.IsStandardInstalledPath() ? UpdateService.StandardInstallDirectory : curDir,
+            RestartExecutablePath: curExe);
+
+        await installVerifiedPackageAsync(package, target);
+        if (!IsDisposed)
+        {
+            Close();
+        }
     }
 
     protected override void OnFormClosing(FormClosingEventArgs e)

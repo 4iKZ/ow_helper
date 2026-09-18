@@ -54,6 +54,10 @@ public sealed record VerifiedUpdatePackage(
     string SourceUrl,
     bool Verified);
 
+public sealed record InstallTarget(
+    string TargetDirectory,
+    string RestartExecutablePath);
+
 public sealed class UpdateService
 {
     public const string DefaultOwner = "4iKZ";
@@ -630,30 +634,5 @@ del ""%~f0""
 
         File.WriteAllText(scriptPath, scriptContent);
         return scriptPath;
-    }
-
-    public static void ExecuteInstallerAndExit(string installerPath, bool silent = true, Action? onBeforeExit = null)
-    {
-        if (silent)
-        {
-            string scriptPath = CreateRestartScript(installerPath);
-            var psi = new ProcessStartInfo("cmd.exe", $"/c \"{scriptPath}\"")
-            {
-                CreateNoWindow = true,
-                UseShellExecute = false,
-            };
-            Process.Start(psi);
-        }
-        else
-        {
-            var psi = new ProcessStartInfo(installerPath)
-            {
-                UseShellExecute = true,
-            };
-            Process.Start(psi);
-        }
-
-        onBeforeExit?.Invoke();
-        Environment.Exit(0);
     }
 }

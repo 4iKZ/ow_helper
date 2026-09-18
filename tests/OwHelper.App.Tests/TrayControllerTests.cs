@@ -5,12 +5,24 @@ using System.IO;
 using OwHelper;
 using OwHelper.Core;
 using OwHelper.Desktop;
+using OwHelper.TestSupport;
 using Xunit;
 
 namespace OwHelper.App.Tests;
 
 public class TrayControllerTests
 {
+    sealed class StubPlacement : IWindowPlacementController
+    {
+        public bool IsOffscreen => false;
+        public bool StyleRestorePending => false;
+        public bool NeedsRestore => false;
+        public long OriginalExStyle => 0;
+        public WindowPlacementResult MoveOffscreen(IntPtr hwnd, int pid, bool hideFromTaskbar) => new(true, "ok", null);
+        public WindowPlacementResult Restore(bool activate = false) => new(true, "ok", null);
+        public bool TryGetOriginalPosition(out int left, out int top) { left = 0; top = 0; return false; }
+    }
+
     static TrayController Build(AppConfig? config = null, IReadOnlyList<string>? problems = null)
     {
         string logPath = Path.Combine(Path.GetTempPath(), "OwHelperTests", Guid.NewGuid().ToString("N"), "test.log");
@@ -19,7 +31,7 @@ public class TrayControllerTests
             null!,
             null!,
             _ => null!,
-            null!,
+            new StubPlacement(),
             _ => { });
         return new TrayController(session, new AppLog(logPath), config ?? new AppConfig(), problems ?? Array.Empty<string>());
     }
@@ -59,7 +71,18 @@ public class TrayControllerTests
     public void BuildGpuGuide_NoNvidia_ReturnsNull()
     {
         var config = new AppConfig();
-
         Assert.Null(TrayController.BuildGpuGuide(config, Array.Empty<GpuInfo>()));
+    }
+
+    [Fact]
+    public async Task PrepareForApplicationExitAsync_IdleSession_ReturnsSafeToExit()
+    {
+        var controller = Build();
+        ApplicationCleanupResult result = await controller.PrepareForApplicationExitAsync();
+
+        Assert.True(result.SafeToExit);
+        Assert.True(result.SessionStopped);
+        Assert.True(result.WindowFullyRestored);
+        Assert.True(result.ResourceRestoreSucceeded);
     }
 }

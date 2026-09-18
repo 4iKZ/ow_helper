@@ -498,6 +498,39 @@ public class SessionLifecycleTests
         Assert.Equal(30, session.Recipe.FocusWaitMs);
     }
 
+    [Fact]
+    public async Task StopAsync_ReturnsStructuredStopResult()
+    {
+        var session = new Session(
+            new PulseRecipe { Keys = new[] { 0x10 } },
+            new FakeLocator(),
+            new FakePulseSender(),
+            _ => new FakeGovernor(),
+            new FakePlacement(),
+            _ => { });
+
+        SessionStopResult result = await session.StopAsync();
+        Assert.False(result.WasRunning);
+        Assert.True(result.Success);
+    }
+
+    [Fact]
+    public async Task CleanupAsync_ReturnsStructuredCleanupResult()
+    {
+        var session = new Session(
+            new PulseRecipe { Keys = new[] { 0x10 } },
+            new FakeLocator(),
+            new FakePulseSender(),
+            _ => new FakeGovernor(),
+            new FakePlacement(),
+            _ => { });
+
+        SessionCleanupResult result = await session.CleanupAsync();
+        Assert.True(result.Stopped);
+        Assert.False(result.WindowRestorePending);
+        Assert.True(result.Success);
+    }
+
     static async Task<bool> WaitFor(Func<bool> condition, int timeoutMs)
     {
         long deadline = Environment.TickCount64 + timeoutMs;

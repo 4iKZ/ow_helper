@@ -29,6 +29,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         log = startup.Log;
         AppConfig config = startup.Config;
         controller = new TrayController(startup.Session, log, config, startup.Problems);
+        controller.InstallVerifiedPackageAsync = InstallVerifiedUpdateAndExitAsync;
 
         statusItem = new ToolStripMenuItem("…") { Enabled = false };
         var openItem = new ToolStripMenuItem("打开主窗口", null, (s, e) => ShowMainWindow());
@@ -240,6 +241,56 @@ internal sealed class TrayApplicationContext : ApplicationContext
         ExitThread();
     }
 
+
+    async Task InstallVerifiedUpdateAndExitAsync(VerifiedUpdatePackage package, InstallTarget target)
+    {
+        log.Write(new LogEntry(
+            DateTimeOffset.Now,
+            LogLevel.Information,
+            "UPDATE_INSTALL_PREPARE",
+            Message: $"package={package.FilePath}, targetDir={target.TargetDirectory}, restartExe={target.RestartExecutablePath}"));
+
+        timer.Stop();
+
+        ApplicationCleanupResult cleanup = await controller.PrepareForApplicationExitAsync();
+        if (!cleanup.SafeToExit)
+        {
+            log.Write(new LogEntry(
+                DateTimeOffset.Now,
+                LogLevel.Warning,
+                "UPDATE_INSTALL_ABORTED",
+                Message: $"Application not safe to exit: {cleanup.Message}"));
+
+            MessageBox.Show(
+                "程序无法安全恢复当前游戏状态，因此已取消自动安装。\n请先恢复游戏窗口或停止挂机后重试。",
+                "更新已取消",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+
+            timer.Start();
+            return;
+        }
+
+        log.Write(new LogEntry(
+            DateTimeOffset.Now,
+            LogLevel.Information,
+            "UPDATE_INSTALL_LAUNCHED",
+            Message: $"Launching installer: {package.FilePath}"));
+
+        mainForm?.CloseForExit();
+        notifyIcon.Visible = false;
+        notifyIcon.Dispose();
+
+        string scriptPath = UpdateService.CreateRestartScript(package.FilePath, target.RestartExecutablePath);
+        var psi = new ProcessStartInfo("cmd.exe", $"/c \"{scriptPath}\"")
+        {
+            CreateNoWindow = true,
+            UseShellExecute = false,
+        };
+        Process.Start(psi);
+
+        ExitThread();
+    }
 
     static bool ConfirmRecovery(string prompt)
         => MessageBox.Show(prompt, "OW 助手", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;

@@ -7,6 +7,13 @@ using OwHelper.Core;
 
 namespace OwHelper.Desktop;
 
+public sealed record ApplicationCleanupResult(
+    bool SessionStopped,
+    bool WindowFullyRestored,
+    bool ResourceRestoreSucceeded,
+    bool SafeToExit,
+    string Message);
+
 public sealed class TrayController
 {
     readonly Session session;
@@ -31,6 +38,8 @@ public sealed class TrayController
     public string? GpuGuide { get; }
 
     public UpdateService UpdateService { get; }
+
+    public Func<VerifiedUpdatePackage, InstallTarget, Task>? InstallVerifiedPackageAsync { get; set; }
 
     internal static string? BuildGpuGuide(AppConfig config, IReadOnlyList<GpuInfo> gpus)
     {
@@ -113,6 +122,42 @@ public sealed class TrayController
         try { await session.CleanupAsync(); }
         catch (Exception ex) { Fail("shutdown", ex); }
         log.Write(new LogEntry(DateTimeOffset.Now, LogLevel.Information, "APP_EXIT", Message: "tray"));
+    }
+
+    public async Task<ApplicationCleanupResult> PrepareForApplicationExitAsync()
+    {
+        SessionCleanupResult sessionCleanup;
+        try
+        {
+            sessionCleanup = await session.CleanupAsync();
+        }
+        catch (Exception ex)
+        {
+            Fail("cleanup", ex);
+            return new ApplicationCleanupResult(
+                SessionStopped: !session.IsRunning,
+                WindowFullyRestored: false,
+                ResourceRestoreSucceeded: false,
+                SafeToExit: false,
+                Message: $"会话清理发生异常: {ex.Message}");
+        }
+
+        bool sessionStopped = sessionCleanup.Stopped && !session.IsRunning;
+        bool windowFullyRestored = !sessionCleanup.WindowRestorePending && (sessionCleanup.WindowRestore == null || sessionCleanup.WindowRestore.Success);
+        bool resourceRestoreSucceeded = sessionCleanup.ResourceRestore == null || sessionCleanup.ResourceRestore.Success;
+
+        bool safeToExit = sessionStopped && windowFullyRestored && resourceRestoreSucceeded;
+
+        string message = safeToExit
+            ? "会话与游戏资源窗口已全部安全恢复。"
+            : $"清理未完成: SessionStopped={sessionStopped}, WindowFullyRestored={windowFullyRestored}, ResourceRestoreSucceeded={resourceRestoreSucceeded}";
+
+        return new ApplicationCleanupResult(
+            SessionStopped: sessionStopped,
+            WindowFullyRestored: windowFullyRestored,
+            ResourceRestoreSucceeded: resourceRestoreSucceeded,
+            SafeToExit: safeToExit,
+            Message: message);
     }
 
     void OpenPath(string? path)
