@@ -10,6 +10,7 @@ using Xunit;
 
 namespace OwHelper.App.Tests;
 
+[Collection("standin")]
 public class LiveSessionIntegrationTests
 {
     static Session CreateSession(string processName, List<string> log, RuntimeStateStore? store = null)

@@ -4,6 +4,12 @@ using Xunit;
 
 namespace OwHelper.App.Tests;
 
+[CollectionDefinition("standin")]
+public class StandInCollection
+{
+}
+
+[Collection("standin")]
 public class TargetSelectionTests
 {
     [Fact]
