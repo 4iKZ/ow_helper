@@ -649,6 +649,23 @@ public void Save(string path)
 
 **结果**：Release 0 警告；Core 119 + App 89 = **208/208**；两前端冒烟存活；6 提交已推送。
 
+## Part G. M2/M3 执行记录（2026-09-18）
+
+| Task | 提交 | 说明 |
+|---|---|---|
+| 7（P1-02/P1-12/§27.4） | `8137a2e` | `GameWindow.Find` 遍历全部同名进程按可见+面积择优、释放未选中句柄；连续失败+校验失效不等满间隔直接重连；会话拥有目标进程生命周期（重连/Dispose 释放）。执行中修了 S07（测试复用已释放句柄的 GameWindow，改为按生产路径刷新） |
+| 8（P1-03/P1-04-校验） | `d642eba` | 配置 tmp+备份原子写、损坏回退备份、schemaVersion=2、GPU 帧率 20–200 钳制 |
+| 9（P1-09） | `b6c625c` | `RecoveryOutcome` + 事件名收敛（RECOVERY_*/CONFIG_LOAD_WARNING/CONFIG_SAVE/RESOURCE_RESTORE_PARTIAL） |
+| 10（P1-06/P1-04-GUI/P1-08） | `b9a124c` | 状态卡：配置修正警告（气泡+可点行）/NVIDIA 后台帧率指引（仅检出时）/本次按键+运行时长；Esc 关设置窗 |
+| 11（P1-07/P1-11） | `bbc7d60` | 互斥体常量单点化+红线测试；CI 发布冒烟；顺手删了 artifacts 里残留的旧 `OwHelper.Tray.exe` |
+| 12（P1-01） | `352cd05` | GetProcessInformation 快照原始 Power 状态并优先恢复，读失败回退 system-managed |
+| M3（MIT/v1.0.0） | `08c3112` | LICENSE（MIT，SiyuanHao）+ 删 TODO；`Directory.Build.props` Version=1.0.0；标题栏显示版本；publish.ps1 双包开关；release.yml（tag→双包+SHA256+Release）；README 下载/License；AGENTS 同步 |
+| 测试隔离修复 | `92da1fb` | **CI 曾红一次**：新多进程测试与 Live 集成测试并行抢同名替身进程池。用 xUnit Collection 串行化；本地连续两遍全绿后推送，CI 转绿 |
+
+**版本号说明**：首个 Release 定为 **v1.0.0**（未采用 PRD 建议的 0.2.0，因仓库现役文档已自称 1.0.0）。
+
+**结果**：Release 0 警告；Core 121 + App 103 = **224/224**；`tag v1.0.0` 已推，Release 创建成功（双包 + SHA256SUMS.txt），下载包内桌面端冒烟存活。
+
 ## Part E. 需要 Owner 决定
 
 1. **P0 六项是否全做**（本计划按"全做"编排）；若只做 P0-01…P0-04（状态一致性四项），P0-05/P0-06 可降到 P1。
