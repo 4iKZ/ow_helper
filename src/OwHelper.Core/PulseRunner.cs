@@ -50,9 +50,18 @@ public static class PulseRunner
             });
         }
 
-        foreach (int vk in recipe.Keys) messages.Add(Key(hwnd, vk, down: true, mouseX, mouseY));
+        int state = 0;
+        foreach (int vk in recipe.Keys)
+        {
+            state = MouseInput.ApplyKeyDown(state, vk);
+            messages.Add(Key(hwnd, vk, down: true, mouseX, mouseY, state));
+        }
         Thread.Sleep(recipe.HoldMs);
-        for (int i = recipe.Keys.Count - 1; i >= 0; i--) messages.Add(Key(hwnd, recipe.Keys[i], down: false, mouseX, mouseY));
+        for (int i = recipe.Keys.Count - 1; i >= 0; i--)
+        {
+            state = MouseInput.ApplyKeyUp(state, recipe.Keys[i]);
+            messages.Add(Key(hwnd, recipe.Keys[i], down: false, mouseX, mouseY, state));
+        }
         if (recipe.SendFocus) messages.Add(Outcome("KILLFOCUS", SendKillFocus(hwnd)));
         if (recipe.SendActivate) messages.Add(Post(hwnd, "ACTIVATE(0)", Native.WM_ACTIVATE, new IntPtr(Native.WA_INACTIVE), IntPtr.Zero));
         if (recipe.SendActivateApp) messages.Add(Post(hwnd, "ACTIVATEAPP(0)", Native.WM_ACTIVATEAPP, IntPtr.Zero, IntPtr.Zero));
@@ -65,11 +74,11 @@ public static class PulseRunner
     static MessageOutcome Outcome(string name, bool ok)
         => new MessageOutcome { Name = name, Ok = ok, Error = ok ? 0 : Marshal.GetLastWin32Error() };
 
-    static MessageOutcome Key(IntPtr hwnd, int vk, bool down, int mouseX, int mouseY)
+    static MessageOutcome Key(IntPtr hwnd, int vk, bool down, int mouseX, int mouseY, int state)
     {
         if (MouseInput.IsMouseVirtualKey(vk))
         {
-            bool sent = MouseInput.SendButton(hwnd, vk, down, mouseX, mouseY);
+            bool sent = MouseInput.SendButton(hwnd, vk, down, mouseX, mouseY, state);
             return Outcome(down ? $"MOUSEDOWN(0x{vk:X2})" : $"MOUSEUP(0x{vk:X2})", sent);
         }
 

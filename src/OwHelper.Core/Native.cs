@@ -24,6 +24,8 @@ internal static class Native
     internal const uint WM_XBUTTONUP = 0x020C;
     internal const int MK_LBUTTON = 0x0001;
     internal const int MK_RBUTTON = 0x0002;
+    internal const int MK_SHIFT = 0x0004;
+    internal const int MK_CONTROL = 0x0008;
     internal const int MK_MBUTTON = 0x0010;
     internal const int XBUTTON1 = 0x0001;
     internal const int XBUTTON2 = 0x0002;

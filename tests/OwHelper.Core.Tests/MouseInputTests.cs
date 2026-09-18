@@ -53,19 +53,19 @@ public class MouseInputTests
     }
 
     [Fact]
-    public void SendButton_LeftButton_CarriesButtonFlagAndPoint()
+    public void SendButton_LeftButton_UpCarriesZeroState()
     {
         using var window = new FakeWindow();
 
-        Assert.True(MouseInput.SendButton(window.Handle, MouseInput.VkLeftButton, down: true, x: 10, y: 20));
-        Assert.True(MouseInput.SendButton(window.Handle, MouseInput.VkLeftButton, down: false, x: 10, y: 20));
+        Assert.True(MouseInput.SendButton(window.Handle, MouseInput.VkLeftButton, down: true, x: 10, y: 20, state: 0x0001));
+        Assert.True(MouseInput.SendButton(window.Handle, MouseInput.VkLeftButton, down: false, x: 10, y: 20, state: 0x0000));
 
         var records = window.WaitFor(2);
         long lParam = records[0].LParam.ToInt64();
         Assert.Equal(WM_LBUTTONDOWN, records[0].Msg);
         Assert.Equal(0x0001, (int)records[0].WParam);
         Assert.Equal(WM_LBUTTONUP, records[1].Msg);
-        Assert.Equal(0x0001, (int)records[1].WParam);
+        Assert.Equal(0x0000, (int)records[1].WParam);
         Assert.Equal(10, (int)(lParam & 0xFFFF));
         Assert.Equal(20, (int)((lParam >> 16) & 0xFFFF));
     }
@@ -75,8 +75,8 @@ public class MouseInputTests
     {
         using var window = new FakeWindow();
 
-        MouseInput.SendButton(window.Handle, MouseInput.VkRightButton, down: true, x: 0, y: 0);
-        MouseInput.SendButton(window.Handle, MouseInput.VkMiddleButton, down: true, x: 0, y: 0);
+        MouseInput.SendButton(window.Handle, MouseInput.VkRightButton, down: true, x: 0, y: 0, state: 0x0002);
+        MouseInput.SendButton(window.Handle, MouseInput.VkMiddleButton, down: true, x: 0, y: 0, state: 0x0010);
 
         var records = window.WaitFor(2);
         Assert.Equal(WM_RBUTTONDOWN, records[0].Msg);
@@ -92,7 +92,7 @@ public class MouseInputTests
     {
         using var window = new FakeWindow();
 
-        MouseInput.SendButton(window.Handle, vk, down: true, x: 0, y: 0);
+        MouseInput.SendButton(window.Handle, vk, down: true, x: 0, y: 0, state: 0);
 
         var record = window.WaitFor(1)[0];
         Assert.Equal(WM_XBUTTONDOWN, record.Msg);
