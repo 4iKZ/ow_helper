@@ -632,6 +632,23 @@ public void Save(string path)
 
 ---
 
+## Part F. M1 执行记录（2026-09-18，一次性做完）
+
+| Task | 提交 | 说明 |
+|---|---|---|
+| 1（P0-01） | `7a35e45` | MainForm 启动只调 `StartAsync`；按钮/副标题如实显示当前配置；`QuickPresets.ToConfig` + 设置页「恢复推荐设置」显式入口；`ArchitectureTests.MainForm_DoesNotApplyQuickPresets` 红线。本提交顺带入库了本计划文档 |
+| 2（P0-02） | `ff56947` | `Session.ApplyConfigAsync`（gate+策略重应用+打断等待重计时）；等待抽成 `WaitForNextPulseAsync`（每轮重读间隔/抖动、CTS 释放）；`TrayController` 先落盘后应用；`SettingsForm` 工作副本 + 保存失败可见；删被取代的 `ReapplyPolicyAsync`；HotApply 单测（~5s） |
+| 3（P0-03） | `c44b9a1` | `PositionRestorePending`/`StyleRestorePending`/`NeedsRestore`；成功才清 flag；回滚失败保留；`IWindowPlacementController` 同步；Core 加 `InternalsVisibleTo` 测试缝 |
+| 4（P0-04） | `4f61f24` | `RuntimeRecovery.FullyRestored` 判定 + 真值表单测；部分恢复保留文件并提示重试 |
+| 5（P0-05） | `c0f676f` | `MouseInput` 状态参数（6 参重载 + 单键便捷重载，保持 BgKeyProbe 不动）；`PulseRunner` 维护按下瞬间状态；chord/Shift 组合单测；修正了固化错误值的旧断言 |
+| 6（P0-06） | `9543251` | `EnsureShown(hwnd, activate)`；`Restore(activate=false)` 默认；仅用户「恢复游戏窗口」传 true；接线单测（`Restore_ForwardsActivateFlag`、`S17`）全环境可跑；前台集成测试加能力自检（无交互桌面会话跳过） |
+
+**执行中与计划的偏差**
+- Task 6 原定的 `SetWindowPlacement` 回退方案已 revert：实证发现当前执行会话（无前台权限）连 `SW_RESTORE` 基线都无法恢复最小化窗口，属环境限制；改用文档化的直接 `ShowWindow(SW_SHOWNOACTIVATE)`，真实前台行为列入 soak 人工验收。
+- Task 1 额外发现 `QuickPresets.Title/Subtitle` 在改完后只剩测试引用，已用设置页 ToolTip 接住（无死字段）。
+
+**结果**：Release 0 警告；Core 119 + App 89 = **208/208**；两前端冒烟存活；6 提交已推送。
+
 ## Part E. 需要 Owner 决定
 
 1. **P0 六项是否全做**（本计划按"全做"编排）；若只做 P0-01…P0-04（状态一致性四项），P0-05/P0-06 可降到 P1。
