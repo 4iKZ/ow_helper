@@ -250,23 +250,7 @@ public sealed class UpdateDialog : Form
     {
         if (isDownloading) return;
 
-        // 1. 挂机运行防护
-        if (controller.Session.State == SessionState.Running)
-        {
-            DialogResult res = MessageBox.Show(this,
-                "当前正在后台挂机中，更新将先安全停止挂机并重启程序。\n是否继续更新？",
-                "挂机运行中提示",
-                MessageBoxButtons.YesNo,
-                MessageBoxIcon.Question);
-
-            if (res != DialogResult.Yes) return;
-
-            statusLabel.Visible = true;
-            statusLabel.Text = "正在安全停止挂机并还原窗口...";
-            await controller.StopAsync();
-        }
-
-        // 2. 便携绿色版路径检测
+        // 1. 便携绿色版路径检测
         if (!UpdateService.IsStandardInstalledPath())
         {
             DialogResult res = MessageBox.Show(this,
@@ -287,7 +271,7 @@ public sealed class UpdateDialog : Form
             }
         }
 
-        // 3. 开始下载流程
+        // 2. 开始下载流程（下载期间保持 Session 继续运行）
         isDownloading = true;
         btnUpdate.Enabled = false;
         btnBrowser.Enabled = false;
@@ -307,18 +291,16 @@ public sealed class UpdateDialog : Form
         string tempDir = Path.Combine(Path.GetTempPath(), "OwHelper_Update");
         string destPath = Path.Combine(tempDir, $"OwHelper-Setup-{info.Version}.exe");
 
+        VerifiedUpdatePackage package;
         try
         {
-            VerifiedUpdatePackage package = await controller.UpdateService.DownloadAndVerifyUpdateAsync(info, destPath, progress, cts.Token);
-            progressBar.Value = 100;
-            statusLabel.Text = "下载并校验完成！即将退出当前程序并静默升级与重启...";
-            await Task.Delay(1000);
-            UpdateService.ExecuteInstallerAndExit(package.FilePath, silent: true);
+            package = await controller.UpdateService.DownloadAndVerifyUpdateAsync(info, destPath, progress, cts.Token);
         }
         catch (OperationCanceledException)
         {
             statusLabel.Text = "下载已取消。";
             ResetButtons();
+            return;
         }
         catch (Exception ex)
         {
@@ -329,6 +311,43 @@ public sealed class UpdateDialog : Form
                 MessageBoxIcon.Warning);
             statusLabel.Text = "下载失败，请尝试使用「浏览器下载」。";
             ResetButtons();
+            return;
+        }
+
+        // 3. 下载与校验完成，只有在安装包完全就绪后，才检查挂机状态并提示退出
+        progressBar.Value = 100;
+        statusLabel.Text = "下载并校验完成！";
+
+        if (controller.Session.IsRunning)
+        {
+            DialogResult res = MessageBox.Show(this,
+                "更新安装包已就绪。当前正在后台挂机中，安装更新需要停止挂机并重启程序。\n是否立即停止挂机并安装？",
+                "挂机运行中提示",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question);
+
+            if (res != DialogResult.Yes)
+            {
+                statusLabel.Text = "更新包已就绪。您可以稍后再次点击「立即更新并重启」。";
+                ResetButtons();
+                return;
+            }
+
+            statusLabel.Text = "正在安全停止挂机并还原窗口...";
+            await controller.StopAsync();
+        }
+
+        statusLabel.Text = "即将退出当前程序并启动更新安装器...";
+        await Task.Delay(1000);
+        UpdateService.ExecuteInstallerAndExit(package.FilePath, silent: true);
+    }
+
+    protected override void OnFormClosing(FormClosingEventArgs e)
+    {
+        base.OnFormClosing(e);
+        if (isDownloading)
+        {
+            cts?.Cancel();
         }
     }
 
