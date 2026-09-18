@@ -31,4 +31,11 @@ public static class QuickPresets
         config.Input.SkipWhenTargetForeground = preset.SkipWhenForeground;
         config.Input.JitterPercent = preset.JitterPercent;
     }
+
+    public static AppConfig ToConfig(QuickPreset preset)
+    {
+        var config = new AppConfig();
+        Apply(preset, config);
+        return config;
+    }
 }

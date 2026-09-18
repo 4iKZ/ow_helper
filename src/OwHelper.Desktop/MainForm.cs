@@ -206,7 +206,7 @@ public sealed class MainForm : Form
         };
         for (int i = 0; i < 3; i++) left.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
-        mainButton.Text = "托比昂战令一键启动";
+        mainButton.Text = "开始挂机";
         mainButton.Font = new Font("Segoe UI Semibold", 16f);
         mainButton.AutoSize = true;
         mainButton.AutoSizeMode = AutoSizeMode.GrowAndShrink;
@@ -317,7 +317,7 @@ public sealed class MainForm : Form
         string[] steps =
         {
             "1. 打开《守望先锋》，进入你想挂的房间或训练场",
-            "2. 点上面的「托比昂战令一键启动」",
+            "2. 点上面的「开始挂机」",
             "3. 正常用电脑就行，它会在后台自动按键（你玩游戏时会自动暂停）",
             "4. 想自己玩时点一次上面的按钮停止；想立刻「消失」可以点「老板键」",
             "   （游戏和本窗口都会隐藏，右键托盘图标即可恢复）",
@@ -340,16 +340,8 @@ public sealed class MainForm : Form
 
     async System.Threading.Tasks.Task ToggleRunAsync()
     {
-        if (controller.Session.IsRunning)
-        {
-            await controller.StopAsync();
-        }
-        else
-        {
-            QuickPresets.Apply(QuickPresets.TorbjornPass, controller.Config);
-            await controller.ApplySettingsAsync(controller.Config);
-            await controller.StartAsync();
-        }
+        if (controller.Session.IsRunning) await controller.StopAsync();
+        else await controller.StartAsync();
         RefreshStatus();
     }
 
@@ -370,12 +362,13 @@ public sealed class MainForm : Form
         latestMessage.Text = AppMessages.Latest.Length > 0 ? "最近：" + AppMessages.Latest : "";
 
         bool running = controller.Session.IsRunning;
-        mainButton.Text = running ? "停止挂机" : "托比昂战令一键启动";
+        string rhythm = $"{string.Join("、", controller.Config.Input.Keys)} · 每 {controller.Config.Input.IntervalSeconds} 秒";
+        mainButton.Text = running ? "停止挂机" : "开始挂机";
         mainButton.BackColor = running ? Palette.StatusFaulted : Palette.Accent;
         mainButton.FlatAppearance.MouseOverBackColor = running ? Palette.StatusFaulted : Palette.AccentHover;
         mainSubtitle.Text = running
-            ? "正在自动按键；按键和间隔可在「更多设置」里调整"
-            : QuickPresets.TorbjornPass.Subtitle + (status.Pid == null ? "（先打开《守望先锋》）" : "");
+            ? $"正在自动按键（{rhythm}）"
+            : $"当前：{rhythm}（点「更多设置」可改）" + (status.Pid == null ? "；先打开《守望先锋》" : "");
         bossKeyButton.Text = controller.Session.IsOffscreen ? "恢复游戏窗口" : "老板键";
     }
 

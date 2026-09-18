@@ -142,8 +142,9 @@ public sealed class SettingsForm : Form
         save.Click += async (s, e) => await SaveAsync();
         var cancel = ActionButton("取消");
         cancel.Click += (s, e) => { DialogResult = DialogResult.Cancel; Close(); };
-        var restore = ActionButton("恢复默认");
-        restore.Click += (s, e) => LoadFromConfig(new AppConfig());
+        var restore = ActionButton("恢复推荐设置");
+        restore.Click += (s, e) => LoadFromConfig(QuickPresets.ToConfig(QuickPresets.TorbjornPass));
+        new ToolTip().SetToolTip(restore, QuickPresets.TorbjornPass.Title + "：" + QuickPresets.TorbjornPass.Subtitle);
         var buttons = new FlowLayoutPanel
         {
             Dock = DockStyle.Bottom,

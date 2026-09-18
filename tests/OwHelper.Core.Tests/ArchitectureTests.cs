@@ -81,6 +81,15 @@ public class ArchitectureTests
         Assert.Empty(offenders);
     }
 
+    [Fact]
+    public void MainForm_DoesNotApplyQuickPresets()
+    {
+        DirectoryInfo root = FindRepoRoot();
+        string source = File.ReadAllText(Path.Combine(root.FullName, "src", "OwHelper.Desktop", "MainForm.cs"));
+
+        Assert.DoesNotContain("QuickPresets.Apply", source);
+    }
+
     static DirectoryInfo FindRepoRoot()
     {
         DirectoryInfo? current = new DirectoryInfo(AppContext.BaseDirectory);

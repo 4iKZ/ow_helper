@@ -55,6 +55,17 @@ public class QuickPresetsTests
     }
 
     [Fact]
+    public void ToConfig_AppliesPresetOnTopOfDefaults()
+    {
+        var config = QuickPresets.ToConfig(QuickPresets.TorbjornPass);
+
+        Assert.Equal(new[] { "shift" }, config.Input.Keys);
+        Assert.Equal(30, config.Input.IntervalSeconds);
+        Assert.Equal("Overwatch", config.Target.ProcessName);
+        Assert.Equal("BelowNormal", config.Resource.Priority);
+    }
+
+    [Fact]
     public void Titles_AvoidJargon()
     {
         foreach (string text in new[] { QuickPresets.TorbjornPass.Title, QuickPresets.TorbjornPass.Subtitle })
