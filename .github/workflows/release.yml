@@ -33,6 +33,16 @@ jobs:
         shell: pwsh
         run: ./scripts/publish.ps1 -Output artifacts/OwHelper-win-x64 -SelfContained
 
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup -y --no-progress
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $version = '${{ github.ref_name }}'.TrimStart('v')
+          & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' installer/OwHelper.iss /DAppVersion=$version
+
       - name: Package and release
         shell: pwsh
         env:
@@ -46,9 +56,9 @@ jobs:
             $zip = "artifacts/packages/$((Split-Path $dir -Leaf))-$version.zip"
             Compress-Archive -Path "$dir/*" -DestinationPath $zip
           }
-          Get-ChildItem artifacts/packages/*.zip | ForEach-Object {
+          Get-ChildItem artifacts/packages/* -Include *.zip, *.exe | ForEach-Object {
             '{0}  {1}' -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash, $_.Name
           } | Out-File artifacts/packages/SHA256SUMS.txt -Encoding ascii
-          gh release create $version artifacts/packages/*.zip artifacts/packages/SHA256SUMS.txt `
+          gh release create $version artifacts/packages/*.zip artifacts/packages/*.exe artifacts/packages/SHA256SUMS.txt `
             --title $version `
-            --notes "OW 助手 $version：后台自动按键 + 老板键 + 设置界面。推荐下载 self-contained 包（免装 .NET）；高级用户可用 framework-dependent 包（需 .NET 8 Desktop Runtime）。详见包内 README.txt。"
+            --notes "OW 助手 $version：后台自动按键 + 老板键 + 设置界面。推荐下载 OwHelper-Setup 安装包（下一步式安装，免装 .NET）；高级用户可用 zip 包（self-contained 免装 .NET，framework-dependent 需 .NET 8 Desktop Runtime）。详见包内 README.txt。"

@@ -12,9 +12,10 @@
 
 ## 下载
 
-在 [GitHub Releases](https://github.com/4iKZ/ow_helper/releases) 下载最新版，解压即用：
+在 [GitHub Releases](https://github.com/4iKZ/ow_helper/releases) 下载最新版：
 
-- **推荐**：`OwHelper-win-x64-<版本>.zip`（自包含，不用装 .NET）
+- **推荐**：`OwHelper-Setup-<版本>.exe`（安装向导，下一步即可，自包含不用装 .NET）
+- 绿色版：`OwHelper-win-x64-<版本>.zip`（自包含，解压即用）
 - 高级用户：`OwHelper-win-x64-framework-dependent-<版本>.zip`（体积小，但要先装 [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0)）
 
 ## 快速开始（四步）

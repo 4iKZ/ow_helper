@@ -35,3 +35,10 @@ jobs:
           foreach ($f in 'OwHelper.Desktop.exe', 'OwHelper.exe', 'BgKeyProbe.exe') {
             if (-not (Test-Path "artifacts/OwHelper-win-x64/$f")) { throw "missing $f" }
           }
+
+      - name: Installer smoke
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+          & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' installer/OwHelper.iss /DAppVersion=0.0.0
+          if (-not (Test-Path 'artifacts/packages/OwHelper-Setup-0.0.0.exe')) { throw 'installer not produced' }

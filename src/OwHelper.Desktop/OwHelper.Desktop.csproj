@@ -9,7 +9,6 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <AssemblyName>OwHelper.Desktop</AssemblyName>
     <RootNamespace>OwHelper.Desktop</RootNamespace>
-    <Version>1.0.0</Version>
   </PropertyGroup>
 
   <ItemGroup>

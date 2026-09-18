@@ -11,7 +11,7 @@ Windows 后台输入调度器：让《守望先锋》在后台自动按设定按
 - 测试：`dotnet test ow_helper.sln -c Release`（193 项：单元 + 假窗口 + 实机替身集成 + 架构红线）
 - 桌面版：`src\OwHelper.Desktop\bin\Release\net8.0-windows\OwHelper.Desktop.exe`
 - 控制台版：`src\OwHelper\bin\Release\net8.0-windows\OwHelper.exe [按键,逗号分隔] [间隔秒]`
-- 发布：`scripts\publish.ps1` → `artifacts\OwHelper-win-x64`；诊断实验：`BgKeyProbe.exe`
+- 发布：`scripts\publish.ps1` → `artifacts\OwHelper-win-x64`；安装包：`installer\OwHelper.iss`（ISCC 编译，需自包含发布目录）；诊断实验：`BgKeyProbe.exe`
 - 用户数据：`%LOCALAPPDATA%\OwHelper\`（config.json / runtime-state.json / logs\）
 
 ## 技术栈
@@ -29,6 +29,6 @@ Windows 后台输入调度器：让《守望先锋》在后台自动按设定按
 
 ## 当前状态与下一步
 
-- 版本 1.0.0（MIT；GitHub Release `v1.0.0` 起双包 + SHA256）；后台按键（含鼠标五键）、自动重连、资源恢复、老板键、设置界面、日志、崩溃恢复均已实机验证。
-- 发布：发版前改 `Directory.Build.props` 的 `Version`，推送 `tag v*` 后 `release.yml` 自动构建双包并建 Release。
+- 版本 1.0.1（MIT；GitHub Release 双包 + 安装包 + SHA256）；后台按键（含鼠标五键）、自动重连、资源恢复、老板键、设置界面、日志、崩溃恢复均已实机验证。
+- 发布：发版前改 `Directory.Build.props` 的 `Version`，推送 `tag v*` 后 `release.yml` 自动构建双包、安装包并建 Release。
 - 待办：① 4 小时 soak 与"游戏最小化"实测（用户侧，含 NoActivate 真实前台行为）② `ResourceGovernor.Snapshot` 公开面去留（`docs/plans/2026-09-18-architecture-review.md` 发现 9）。
