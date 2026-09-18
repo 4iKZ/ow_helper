@@ -6,6 +6,9 @@ namespace OwHelper;
 
 public static class RuntimeRecovery
 {
+    public static bool FullyRestored(WindowPlacementResult position, bool styleRequired, bool styleOk)
+        => position.Success && (!styleRequired || styleOk);
+
     public static bool TryRecover(RuntimeStateStore store, Action<string> output, Func<string, bool> confirm)
     {
         RuntimeState? state = store.Load();
@@ -37,18 +40,25 @@ public static class RuntimeRecovery
         }
 
         WindowPlacementResult result = WindowMover.MoveTo((IntPtr)state.Hwnd, state.Pid, state.Left, state.Top);
+        bool styleOk = true;
         if (state.TaskbarHidden)
         {
             WindowStyleResult style = WindowStyle.RestoreStyle((IntPtr)state.Hwnd, state.Pid, state.OriginalExStyle);
-            if (!style.Success)
+            styleOk = style.Success;
+            if (!styleOk)
             {
-                output($"  任务栏图标恢复失败: {style.Message}");
+                output($"  任务栏图标恢复失败: {style.Message}（下次启动会重试）");
             }
         }
-        output(result.Success ? "  上次移出屏幕的窗口已恢复" : $"  恢复失败: {result.Message}");
-        if (result.Success) store.Clear();
+        bool fullyRestored = FullyRestored(result, state.TaskbarHidden, styleOk);
+        output(fullyRestored
+            ? "  上次移出屏幕的窗口已恢复"
+            : result.Success
+                ? "  窗口位置已恢复，任务栏样式未完全恢复（恢复状态已保留）"
+                : $"  恢复失败: {result.Message}");
+        if (fullyRestored) store.Clear();
         process?.Dispose();
-        return result.Success;
+        return fullyRestored;
     }
 }
 

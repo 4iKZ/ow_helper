@@ -66,6 +66,18 @@ public class RuntimeStateTests
     }
 
     [Fact]
+    public void FullyRestored_RequiresStyleWhenTaskbarHidden()
+    {
+        var ok = new WindowPlacementResult(true, "ok", null);
+        var fail = new WindowPlacementResult(false, "bad", 5);
+
+        Assert.True(RuntimeRecovery.FullyRestored(ok, styleRequired: false, styleOk: true));
+        Assert.True(RuntimeRecovery.FullyRestored(ok, styleRequired: true, styleOk: true));
+        Assert.False(RuntimeRecovery.FullyRestored(ok, styleRequired: true, styleOk: false));
+        Assert.False(RuntimeRecovery.FullyRestored(fail, styleRequired: false, styleOk: true));
+    }
+
+    [Fact]
     public void TryRecover_WhenDeclined_KeepsStateAndWindow()
     {
         using var window = new FakeWindow();
