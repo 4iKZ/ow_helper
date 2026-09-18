@@ -14,7 +14,7 @@ public sealed class StandInProcess : IDisposable
 
     StandInProcess(Process process) => Process = process;
 
-    public static StandInProcess Start()
+    public static StandInProcess Start(params string[] args)
     {
         string exe = Path.Combine(AppContext.BaseDirectory, Name + ".exe");
         var info = new ProcessStartInfo(exe)
@@ -23,8 +23,9 @@ public sealed class StandInProcess : IDisposable
             RedirectStandardOutput = true,
             RedirectStandardError = true,
         };
+        if (args.Length > 0) info.Arguments = string.Join(" ", args);
         Process process = Process.Start(info) ?? throw new InvalidOperationException("无法启动替身进程");
-        WaitForWindow(process, 10000);
+        if (Array.IndexOf(args, "nowindow") < 0) WaitForWindow(process, 10000);
         return new StandInProcess(process);
     }
 

@@ -322,7 +322,12 @@ public sealed class Session : IAsyncDisposable
                     failureStreak++;
                     MessageOutcome first = result.Messages.First(m => !m.Ok);
                     Log(LogLevel.Warning, "PULSE_PARTIAL_FAILURE", pid: (int)current.Pid, hwnd: current.Handle, pulseIndex: pulseCount, nativeError: first.Error, operation: first.Name, elapsedMs: elapsed);
-                    if (failureStreak == 3)
+                    if (failureStreak >= 2 && !current.Validate().Valid)
+                    {
+                        Log(LogLevel.Warning, "TARGET_LOST", pid: (int)current.Pid, hwnd: current.Handle, message: "target invalid after consecutive pulse failures; reattaching now");
+                        reattachRequested = true;
+                    }
+                    else if (failureStreak == 3)
                     {
                         Log(LogLevel.Error, "NATIVE_ERROR", pid: (int)current.Pid, nativeError: first.Error, operation: first.Name, message: "consecutive pulse failures");
                         output($"  警告：连续 3 次脉冲发送失败（{first.Name} err={first.Error}），可能需要以管理员身份运行");
@@ -373,7 +378,8 @@ public sealed class Session : IAsyncDisposable
         {
             if (!IsRunning) return AttachLocked();
             reattachRequested = true;
-            wakeCts?.Cancel();
+            try { wakeCts?.Cancel(); }
+            catch (ObjectDisposedException) { }
             return true;
         }
         finally { gate.Release(); }
@@ -387,13 +393,14 @@ public sealed class Session : IAsyncDisposable
         output("  目标已失效，等待重新连接...");
 
         IResourceGovernor? oldGovernor;
+        GameWindow? oldTarget;
         int oldPid;
         bool wasOffscreen = placement.IsOffscreen;
         await gate.WaitAsync();
         try
         {
             oldGovernor = governor;
-            GameWindow? oldTarget = target;
+            oldTarget = target;
             oldPid = oldTarget == null ? -1 : (int)oldTarget.Pid;
         }
         finally { gate.Release(); }
@@ -419,6 +426,7 @@ public sealed class Session : IAsyncDisposable
         await gate.WaitAsync();
         try
         {
+            oldTarget?.Process.Dispose();
             target = null;
             governor = null;
             failureStreak = 0;
@@ -497,7 +505,12 @@ public sealed class Session : IAsyncDisposable
         if (Interlocked.Exchange(ref disposed, 1) != 0) return;
         await CleanupAsync();
         await gate.WaitAsync();
-        try { State = SessionState.Disposed; }
+        try
+        {
+            target?.Process.Dispose();
+            target = null;
+            State = SessionState.Disposed;
+        }
         finally { gate.Release(); }
         gate.Dispose();
     }

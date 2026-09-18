@@ -27,7 +27,7 @@ class Program
         return DefWindowProc(hWnd, msg, wParam, lParam);
     }
 
-    static void Main()
+    static void Main(string[] args)
     {
         const string className = "OwHelperStandInWindow";
         var wc = new WNDCLASSEX
@@ -38,8 +38,11 @@ class Program
             lpszClassName = className,
         };
         RegisterClassEx(ref wc);
-        CreateWindowEx(0, className, "OwHelper StandIn", WS_OVERLAPPEDWINDOW | WS_VISIBLE,
-            100, 100, 640, 480, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero);
+        if (Array.IndexOf(args, "nowindow") < 0)
+        {
+            CreateWindowEx(0, className, "OwHelper StandIn", WS_OVERLAPPEDWINDOW | WS_VISIBLE,
+                100, 100, 640, 480, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero);
+        }
         while (GetMessage(out MSG msg, IntPtr.Zero, 0, 0) > 0)
         {
             TranslateMessage(ref msg);

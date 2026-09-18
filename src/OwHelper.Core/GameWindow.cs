@@ -38,8 +38,41 @@ public sealed class GameWindow
 
     public static GameWindow? Find(string processName)
     {
-        Process? process = FirstProcess(processName);
-        return process == null ? null : Find(process);
+        Process[] processes = Process.GetProcessesByName(processName);
+        GameWindow? best = null;
+        long bestScore = -1;
+        foreach (Process process in processes)
+        {
+            bool keep = false;
+            try
+            {
+                GameWindow? candidate = Find(process);
+                if (candidate != null)
+                {
+                    long score = (candidate.Visible ? 1_000_000_000L : 0) + (long)candidate.Width * candidate.Height;
+                    if (score > bestScore)
+                    {
+                        best?.Process.Dispose();
+                        best = candidate;
+                        bestScore = score;
+                        keep = true;
+                    }
+                }
+            }
+            catch
+            {
+                // 进程在枚举期间退出：视为无候选
+            }
+            finally
+            {
+                if (!keep)
+                {
+                    try { process.Dispose(); }
+                    catch { }
+                }
+            }
+        }
+        return best;
     }
 
     public static GameWindow? Find(Process process)

@@ -22,11 +22,13 @@ public class SessionLifecycleTests
         public int Calls;
         public bool Fail;
         public PulseRecipe? LastRecipe;
+        public Action? OnExecute;
 
         public PulseResult Execute(IntPtr hwnd, PulseRecipe recipe)
         {
             Calls++;
             LastRecipe = recipe;
+            OnExecute?.Invoke();
             bool ok = !Fail;
             return new PulseResult
             {
@@ -231,6 +233,8 @@ public class SessionLifecycleTests
         await h.Session.ToggleOffscreenAsync();
         Assert.True(h.Placement.IsOffscreen);
 
+        h.Locator.Next = GameWindow.Find(Process.GetCurrentProcess());
+        Assert.NotNull(h.Locator.Next);
         await h.Session.ReattachAsync();
 
         Assert.True(await WaitFor(() => h.Placement.RestoreCalls == 1, 10000));
@@ -381,6 +385,29 @@ public class SessionLifecycleTests
 
         Assert.Equal(true, h.Placement.LastRestoreActivate);
         Assert.False(h.Placement.NeedsRestore);
+    }
+
+    [Fact]
+    public async Task S18_ConsecutiveFailuresWithDeadTarget_ReattachesWithoutWaitingFullInterval()
+    {
+        await using var h = new Harness();
+        h.Session.IntervalSec = 5;
+        h.Session.ReattachPollMs = 50;
+        h.Pulse.Fail = true;
+        h.Pulse.OnExecute = () =>
+        {
+            if (h.Pulse.Calls == 2)
+            {
+                h.Session.IntervalSec = 60;
+                h.Window.Dispose();
+            }
+        };
+        await h.Session.AttachAsync();
+        await h.Session.StartAsync();
+
+        Assert.True(
+            await WaitFor(() => h.Session.State == SessionState.Reattaching, 15000),
+            "连续失败且目标已失效时应不等满间隔直接重连");
     }
 
     [Fact]
