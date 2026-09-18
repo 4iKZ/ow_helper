@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using Xunit;
 
 namespace OwHelper.Core.Tests;
@@ -105,6 +106,44 @@ public class ResourceGovernorTests
         {
             governor.Restore();
             self.PriorityClass = original;
+        }
+    }
+
+    [Fact]
+    public void Restore_ReturnsPowerThrottlingToPreApplyState()
+    {
+        using var self = Process.GetCurrentProcess();
+        if (!TryQueryPower(self, out Native.PROCESS_POWER_THROTTLING_STATE before)) return;
+        var governor = new ResourceGovernor(self);
+        try
+        {
+            ResourceApplyResult apply = governor.Apply(ResourcePolicy.Default);
+            ResourceRestoreResult restore = governor.Restore();
+            if (!apply.Power.Success || !restore.Power.Success) return;
+            Assert.True(TryQueryPower(self, out Native.PROCESS_POWER_THROTTLING_STATE after));
+            Assert.Equal(before.ControlMask, after.ControlMask);
+            Assert.Equal(before.StateMask, after.StateMask);
+        }
+        finally
+        {
+            governor.Restore();
+        }
+    }
+
+    static bool TryQueryPower(Process process, out Native.PROCESS_POWER_THROTTLING_STATE state)
+    {
+        try
+        {
+            return Native.GetProcessInformation(
+                process.Handle,
+                Native.ProcessInformationClass.ProcessPowerThrottling,
+                out state,
+                (uint)Marshal.SizeOf<Native.PROCESS_POWER_THROTTLING_STATE>());
+        }
+        catch
+        {
+            state = default;
+            return false;
         }
     }
 

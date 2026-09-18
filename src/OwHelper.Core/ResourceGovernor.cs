@@ -10,6 +10,9 @@ public sealed class ResourceGovernor : IResourceGovernor
     readonly Process process;
     ProcessPriorityClass originalPriority;
     bool priorityCaptured;
+    uint originalPowerControl;
+    uint originalPowerState;
+    bool powerCaptured;
 
     public ResourceGovernor(Process process) => this.process = process;
 
@@ -37,22 +40,46 @@ public sealed class ResourceGovernor : IResourceGovernor
     public ResourceRestoreResult Restore()
     {
         OperationResult priority = RestorePriority();
-        (uint control, uint state) = PowerThrottlePolicy.SystemManaged;
-        OperationResult power = SetPowerThrottle(control, state, "restored to system-managed");
+        OperationResult power = powerCaptured
+            ? SetPowerThrottle(originalPowerControl, originalPowerState, "restored to original power throttling")
+            : SetPowerThrottle(PowerThrottlePolicy.SystemManaged.Control, PowerThrottlePolicy.SystemManaged.State, "restored to system-managed");
         return new ResourceRestoreResult(priority, power);
     }
 
     void CaptureOnce()
     {
-        if (priorityCaptured) return;
-        try
+        if (priorityCaptured && powerCaptured) return;
+        if (!priorityCaptured)
         {
-            originalPriority = process.PriorityClass;
-            priorityCaptured = true;
+            try
+            {
+                originalPriority = process.PriorityClass;
+                priorityCaptured = true;
+            }
+            catch
+            {
+                priorityCaptured = false;
+            }
         }
-        catch
+        if (!powerCaptured)
         {
-            priorityCaptured = false;
+            try
+            {
+                if (Native.GetProcessInformation(
+                    process.Handle,
+                    Native.ProcessInformationClass.ProcessPowerThrottling,
+                    out Native.PROCESS_POWER_THROTTLING_STATE state,
+                    (uint)Marshal.SizeOf<Native.PROCESS_POWER_THROTTLING_STATE>())
+                    && state.Version == Native.PROCESS_POWER_THROTTLING_CURRENT_VERSION)
+                {
+                    originalPowerControl = state.ControlMask;
+                    originalPowerState = state.StateMask;
+                    powerCaptured = true;
+                }
+            }
+            catch
+            {
+            }
         }
     }
 

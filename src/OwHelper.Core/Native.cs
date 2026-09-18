@@ -140,6 +140,9 @@ internal static class Native
     [DllImport("kernel32.dll", SetLastError = true)]
     internal static extern bool SetProcessInformation(IntPtr hProcess, ProcessInformationClass infoClass, ref PROCESS_POWER_THROTTLING_STATE info, uint infoSize);
 
+    [DllImport("kernel32.dll", SetLastError = true)]
+    internal static extern bool GetProcessInformation(IntPtr hProcess, ProcessInformationClass infoClass, out PROCESS_POWER_THROTTLING_STATE info, uint infoSize);
+
     [StructLayout(LayoutKind.Sequential)]
     internal struct RECT { public int Left, Top, Right, Bottom; }
 
