@@ -103,6 +103,7 @@ public sealed class SettingsForm : Form
         BackColor = Palette.Paper;
         ForeColor = Palette.Ink;
         Font = new Font("Microsoft YaHei UI", 9f);
+        AutoScaleMode = AutoScaleMode.Dpi;
         ClientSize = new Size(620, 720);
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;

@@ -62,7 +62,7 @@ public sealed class MainForm : Form
         Text = "OW 助手 v" + System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString(3);
         BackColor = Palette.Paper;
         ForeColor = Palette.Ink;
-        AutoScaleMode = AutoScaleMode.None;
+        AutoScaleMode = AutoScaleMode.Dpi;
         Font = new Font("Microsoft YaHei UI", 9f);
         ClientSize = new Size(680, 540);
         FormBorderStyle = FormBorderStyle.FixedSingle;

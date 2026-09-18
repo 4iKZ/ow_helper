@@ -40,6 +40,7 @@ public sealed class UpdateDialog : Form
         BackColor = Palette.Paper;
         ForeColor = Palette.Ink;
         Font = new Font("Microsoft YaHei UI", 9f);
+        AutoScaleMode = AutoScaleMode.Dpi;
         ClientSize = new Size(540, 480);
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
@@ -298,7 +299,7 @@ public sealed class UpdateDialog : Form
         progressBar.Visible = true;
         progressBar.Value = 0;
         statusLabel.Visible = true;
-        statusLabel.Text = "正在连接下载节点（双通道智能加速）...";
+        statusLabel.Text = "正在连接更新服务器…";
 
         cts = new CancellationTokenSource();
         var progress = new Progress<DownloadProgressReport>(report =>
@@ -313,7 +314,18 @@ public sealed class UpdateDialog : Form
         VerifiedUpdatePackage package;
         try
         {
-            package = await controller.UpdateService.DownloadAndVerifyUpdateAsync(info, destPath, progress, cts.Token);
+            package = await controller.UpdateService.DownloadAndVerifyUpdateAsync(
+                info,
+                destPath,
+                progress,
+                cts.Token,
+                status =>
+                {
+                    if (!IsDisposed)
+                    {
+                        try { Invoke(() => statusLabel.Text = status); } catch { }
+                    }
+                });
         }
         catch (OperationCanceledException)
         {
@@ -335,7 +347,7 @@ public sealed class UpdateDialog : Form
 
         // 3. 下载与校验完成，只有在安装包完全就绪后，才检查挂机状态并提示退出
         progressBar.Value = 100;
-        statusLabel.Text = "下载并校验完成！";
+        statusLabel.Text = "更新包已验证";
 
         if (controller.Session.IsRunning)
         {
@@ -352,11 +364,11 @@ public sealed class UpdateDialog : Form
                 return;
             }
 
-            statusLabel.Text = "正在安全停止挂机并还原窗口...";
+            statusLabel.Text = "正在安全停止后台任务…";
             await controller.StopAsync();
         }
 
-        statusLabel.Text = "准备安装更新并安全退出程序...";
+        statusLabel.Text = "正在启动安装程序…";
         await installVerifiedPackageAsync(package, target);
         if (!IsDisposed)
         {

@@ -413,7 +413,8 @@ public sealed class UpdateService
         UpdateInfo info,
         string destinationPath,
         IProgress<DownloadProgressReport>? progress = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        Action<string>? statusCallback = null)
     {
         if (string.IsNullOrWhiteSpace(info.SetupDownloadUrl))
         {
@@ -466,6 +467,10 @@ public sealed class UpdateService
             }
 
             string sourceHost = candidateUri.Host;
+            if (downloadUrl != urlsToTry[0])
+            {
+                statusCallback?.Invoke("主下载源不可用，正在尝试备用节点…");
+            }
             TryDeleteFile(tempPath);
             ct.ThrowIfCancellationRequested();
 
@@ -529,6 +534,7 @@ public sealed class UpdateService
                 }
 
                 // 3. 计算 SHA-256
+                statusCallback?.Invoke("正在验证文件完整性…");
                 string actualSha256;
                 await using (FileStream hashStream = File.OpenRead(tempPath))
                 {
