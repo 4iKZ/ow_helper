@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Threading.Tasks;
 using OwHelper;
 using OwHelper.Core;
@@ -42,6 +43,7 @@ public class SessionLifecycleTests
         public int ApplyCalls;
         public int RestoreCalls;
         public bool PriorityFails;
+        public bool RestoreFails;
 
         public ResourceSnapshot? Snapshot => null;
 
@@ -57,7 +59,9 @@ public class SessionLifecycleTests
         public ResourceRestoreResult Restore()
         {
             RestoreCalls++;
-            return new ResourceRestoreResult(Ok("Priority"), Ok("Power"));
+            return new ResourceRestoreResult(
+                RestoreFails ? new OperationResult("Priority", false, 5, "Access denied") : Ok("Priority"),
+                Ok("Power"));
         }
 
         static OperationResult Ok(string name) => new OperationResult(name, true, null, "ok");
@@ -408,6 +412,32 @@ public class SessionLifecycleTests
         Assert.True(
             await WaitFor(() => h.Session.State == SessionState.Reattaching, 15000),
             "连续失败且目标已失效时应不等满间隔直接重连");
+    }
+
+    [Fact]
+    public async Task S19_PartialRestore_LogsRestorePartialEvent()
+    {
+        string logPath = Path.Combine(Path.GetTempPath(), "OwHelperTests", Guid.NewGuid().ToString("N"), "test.log");
+        var log = new AppLog(logPath, LogLevel.Debug);
+        using var window = new FakeWindow(topLevel: true);
+        var locator = new FakeLocator { Next = GameWindow.Find(Process.GetCurrentProcess()) };
+        var governor = new FakeGovernor { RestoreFails = true };
+        var session = new Session(
+            new PulseRecipe { Keys = new[] { 0x10 } },
+            locator,
+            new FakePulseSender(),
+            _ => governor,
+            new FakePlacement(),
+            _ => { },
+            log);
+        Assert.NotNull(locator.Next);
+
+        await session.AttachAsync();
+        await session.StartAsync();
+        await session.StopAsync();
+        await session.DisposeAsync();
+
+        Assert.Contains(log.Tail(50), line => line.Contains("RESOURCE_RESTORE_PARTIAL"));
     }
 
     [Fact]

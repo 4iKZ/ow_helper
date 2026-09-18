@@ -529,7 +529,7 @@ public sealed class Session : IAsyncDisposable
     {
         bool partial = !restored.Success;
         Log(partial ? LogLevel.Warning : LogLevel.Information,
-            "RESOURCE_RESTORE",
+            partial ? "RESOURCE_RESTORE_PARTIAL" : "RESOURCE_RESTORE",
             nativeError: restored.Priority.NativeError ?? restored.Power.NativeError,
             operation: "policy",
             message: $"{restored.Priority.Name}={(restored.Priority.Success ? "ok" : restored.Priority.Message)}; {restored.Power.Name}={(restored.Power.Success ? "ok" : restored.Power.Message)}");

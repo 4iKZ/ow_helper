@@ -4,15 +4,36 @@ using OwHelper.Core;
 
 namespace OwHelper;
 
+public enum RecoveryOutcome
+{
+    None,
+    Skipped,
+    Stale,
+    Success,
+    Partial,
+}
+
+public static class RecoveryOutcomeExtensions
+{
+    public static string ToEventName(this RecoveryOutcome outcome) => outcome switch
+    {
+        RecoveryOutcome.Skipped => "RECOVERY_SKIPPED",
+        RecoveryOutcome.Stale => "RECOVERY_STALE",
+        RecoveryOutcome.Success => "RECOVERY_SUCCESS",
+        RecoveryOutcome.Partial => "RECOVERY_PARTIAL",
+        _ => "RECOVERY_NONE",
+    };
+}
+
 public static class RuntimeRecovery
 {
     public static bool FullyRestored(WindowPlacementResult position, bool styleRequired, bool styleOk)
         => position.Success && (!styleRequired || styleOk);
 
-    public static bool TryRecover(RuntimeStateStore store, Action<string> output, Func<string, bool> confirm)
+    public static RecoveryOutcome TryRecover(RuntimeStateStore store, Action<string> output, Func<string, bool> confirm)
     {
         RuntimeState? state = store.Load();
-        if (state == null) return false;
+        if (state == null) return RecoveryOutcome.None;
 
         Process? process = null;
         try { process = Process.GetProcessById(state.Pid); }
@@ -29,14 +50,14 @@ public static class RuntimeRecovery
             store.Clear();
             output($"  上次运行的窗口状态已失效（{validation.Reason}），已清理");
             process?.Dispose();
-            return false;
+            return RecoveryOutcome.Stale;
         }
 
         if (!confirm("发现上次异常退出时移出屏幕的窗口，按 Y 恢复，其他键跳过"))
         {
             output("  已跳过恢复（runtime-state.json 保留）");
             process?.Dispose();
-            return false;
+            return RecoveryOutcome.Skipped;
         }
 
         WindowPlacementResult result = WindowMover.MoveTo((IntPtr)state.Hwnd, state.Pid, state.Left, state.Top);
@@ -58,7 +79,7 @@ public static class RuntimeRecovery
                 : $"  恢复失败: {result.Message}");
         if (fullyRestored) store.Clear();
         process?.Dispose();
-        return fullyRestored;
+        return fullyRestored ? RecoveryOutcome.Success : RecoveryOutcome.Partial;
     }
 }
 

@@ -49,6 +49,15 @@ public class RuntimeStateTests
     }
 
     [Fact]
+    public void RecoveryOutcome_ToEventName_MatchesCatalog()
+    {
+        Assert.Equal("RECOVERY_SKIPPED", RecoveryOutcome.Skipped.ToEventName());
+        Assert.Equal("RECOVERY_STALE", RecoveryOutcome.Stale.ToEventName());
+        Assert.Equal("RECOVERY_SUCCESS", RecoveryOutcome.Success.ToEventName());
+        Assert.Equal("RECOVERY_PARTIAL", RecoveryOutcome.Partial.ToEventName());
+    }
+
+    [Fact]
     public void TryRecover_WithValidStateAndConfirm_RestoresAndClears()
     {
         using var window = new FakeWindow();
@@ -58,9 +67,9 @@ public class RuntimeStateTests
         store.Save(MakeState(window, self, 111, 222));
         var logs = new List<string>();
 
-        bool recovered = RuntimeRecovery.TryRecover(store, logs.Add, _ => true);
+        RecoveryOutcome outcome = RuntimeRecovery.TryRecover(store, logs.Add, _ => true);
 
-        Assert.True(recovered);
+        Assert.Equal(RecoveryOutcome.Success, outcome);
         Assert.Equal(111, window.GetRect().Left);
         Assert.Null(store.Load());
     }
@@ -87,9 +96,9 @@ public class RuntimeStateTests
         store.Save(MakeState(window, self, 111, 222));
         var logs = new List<string>();
 
-        bool recovered = RuntimeRecovery.TryRecover(store, logs.Add, _ => false);
+        RecoveryOutcome outcome = RuntimeRecovery.TryRecover(store, logs.Add, _ => false);
 
-        Assert.False(recovered);
+        Assert.Equal(RecoveryOutcome.Skipped, outcome);
         Assert.Equal(-10000, window.GetRect().Left);
         Assert.NotNull(store.Load());
     }
@@ -104,9 +113,9 @@ public class RuntimeStateTests
         store.Save(new RuntimeState(self.Id + 1, null, window.Handle.ToInt64(), 111, 222, false, 0));
         var logs = new List<string>();
 
-        bool recovered = RuntimeRecovery.TryRecover(store, logs.Add, _ => true);
+        RecoveryOutcome outcome = RuntimeRecovery.TryRecover(store, logs.Add, _ => true);
 
-        Assert.False(recovered);
+        Assert.Equal(RecoveryOutcome.Stale, outcome);
         Assert.Equal(-10000, window.GetRect().Left);
         Assert.Null(store.Load());
     }
@@ -117,9 +126,9 @@ public class RuntimeStateTests
         var store = new RuntimeStateStore(TempStatePath());
         var logs = new List<string>();
 
-        bool recovered = RuntimeRecovery.TryRecover(store, logs.Add, _ => true);
+        RecoveryOutcome outcome = RuntimeRecovery.TryRecover(store, logs.Add, _ => true);
 
-        Assert.False(recovered);
+        Assert.Equal(RecoveryOutcome.None, outcome);
         Assert.Empty(logs);
     }
 }

@@ -23,16 +23,25 @@ public static class AppStartup
         var log = new AppLog(AppLog.DefaultFilePath(), config.MinLogLevel());
         foreach (string problem in problems)
         {
-            log.Write(new LogEntry(DateTimeOffset.Now, LogLevel.Warning, "CONFIG_LOAD_FAILED", Message: problem));
+            log.Write(new LogEntry(DateTimeOffset.Now, LogLevel.Warning, "CONFIG_LOAD_WARNING", Message: problem));
         }
         AppLog.DeleteOlderThan(Path.GetDirectoryName(log.FilePath) ?? "", config.Logging.RetainDays);
         log.Write(new LogEntry(DateTimeOffset.Now, LogLevel.Information, "APP_START", Message: frontendTag));
 
         var stateStore = new RuntimeStateStore(RuntimeStateStore.DefaultPath);
-        RuntimeRecovery.TryRecover(
-            stateStore,
-            message => log.Write(new LogEntry(DateTimeOffset.Now, LogLevel.Warning, "CONFIG_LOAD_FAILED", Operation: "recovery", Message: message)),
-            confirmRecovery);
+        var recoveryMessages = new List<string>();
+        RecoveryOutcome recovery = RuntimeRecovery.TryRecover(stateStore, recoveryMessages.Add, confirmRecovery);
+        if (recovery != RecoveryOutcome.None)
+        {
+            foreach (string message in recoveryMessages)
+            {
+                log.Write(new LogEntry(
+                    DateTimeOffset.Now,
+                    recovery == RecoveryOutcome.Success ? LogLevel.Information : LogLevel.Warning,
+                    recovery.ToEventName(),
+                    Message: message));
+            }
+        }
 
         var session = new Session(
             config.BuildRecipe(),

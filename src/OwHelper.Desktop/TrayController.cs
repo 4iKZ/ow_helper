@@ -29,7 +29,7 @@ public sealed class TrayController
         log.Write(new LogEntry(
             DateTimeOffset.Now,
             LogLevel.Information,
-            "CONFIG_APPLIED",
+            "CONFIG_SAVE",
             Message: $"keys={string.Join(",", updated.Input.Keys)}; interval={updated.Input.IntervalSeconds}"));
 
         ResourceApplyResult? applied = await session.ApplyConfigAsync(updated);
