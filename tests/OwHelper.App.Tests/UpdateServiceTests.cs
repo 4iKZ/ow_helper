@@ -168,6 +168,11 @@ public class UpdateServiceTests
         Assert.Contains("Setup.exe", content);
         Assert.Contains("/SILENT", content);
         Assert.Contains("/SUPPRESSMSGBOXES", content);
+        Assert.Contains("/NORESTART", content);
+        Assert.Contains("/CLOSEAPPLICATIONS", content);
+        Assert.Contains("/DIR=", content);
+        Assert.Contains("/LOG=", content);
+        Assert.Contains("OWH_EXIT", content);
         Assert.Contains("OwHelper.Desktop.exe", content);
 
         File.Delete(scriptPath);

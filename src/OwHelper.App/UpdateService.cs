@@ -52,7 +52,8 @@ public sealed record VerifiedUpdatePackage(
     long SizeBytes,
     string Sha256,
     string SourceUrl,
-    bool Verified);
+    bool Verified,
+    string Version = "1.2.0");
 
 public sealed record InstallTarget(
     string TargetDirectory,
@@ -566,7 +567,8 @@ public sealed class UpdateService
                     SizeBytes: actualSize,
                     Sha256: actualSha256,
                     SourceUrl: downloadUrl,
-                    Verified: true);
+                    Verified: true,
+                    Version: info.Version);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
@@ -619,17 +621,126 @@ public sealed class UpdateService
         }
     }
 
-    public static string CreateRestartScript(string installerPath, string? targetExePath = null)
+    public static string QuoteCmdArgument(string? arg)
+    {
+        if (string.IsNullOrEmpty(arg))
+        {
+            return "\"\"";
+        }
+
+        string s = arg.Trim();
+        if (s.StartsWith('"') && s.EndsWith('"') && s.Length >= 2)
+        {
+            s = s.Substring(1, s.Length - 2);
+        }
+
+        // In batch files, '%' must be escaped as '%%' so cmd won't treat it as an environment variable
+        s = s.Replace("%", "%%");
+        s = s.Replace("\"", "\\\"");
+
+        return $"\"{s}\"";
+    }
+
+    public static int CleanUpdateTempFiles(string? directory = null, TimeSpan? olderThan = null)
+    {
+        string dir = directory ?? Path.Combine(Path.GetTempPath(), "OwHelper_Update");
+        TimeSpan threshold = olderThan ?? TimeSpan.FromHours(24);
+        int deleted = 0;
+
+        try
+        {
+            if (!Directory.Exists(dir)) return 0;
+
+            string[] patterns = new[] { "*.downloading", "OwHelper-Setup-*.exe", "install-*.cmd" };
+            DateTime thresholdTimeUtc = DateTime.UtcNow - threshold;
+
+            foreach (string pattern in patterns)
+            {
+                foreach (string file in Directory.EnumerateFiles(dir, pattern, SearchOption.TopDirectoryOnly))
+                {
+                    try
+                    {
+                        if (File.GetLastWriteTimeUtc(file) < thresholdTimeUtc)
+                        {
+                            File.Delete(file);
+                            deleted++;
+                        }
+                    }
+                    catch
+                    {
+                        // 忽略单个文件删除失败（如文件正在被占用）
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // 忽略目录扫描异常
+        }
+
+        return deleted;
+    }
+
+    public static string CreateRestartScript(
+        string installerPath,
+        string? targetExePath = null,
+        string? targetDirectory = null,
+        string? targetVersion = null,
+        string? logPath = null,
+        string? updateResultPath = null)
     {
         targetExePath ??= StandardExecutablePath;
-        string scriptPath = Path.Combine(Path.GetTempPath(), "owhelper_update_restart.cmd");
+        targetDirectory ??= (Path.GetDirectoryName(targetExePath) ?? StandardInstallDirectory);
+        targetVersion ??= "1.2.0";
+        logPath ??= Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "OwHelper",
+            "logs",
+            $"setup-{DateTime.Now:yyyyMMdd-HHmmss}.log");
+        updateResultPath ??= UpdateResultStore.DefaultPath;
+
+        string updateDir = Path.Combine(Path.GetTempPath(), "OwHelper_Update");
+        Directory.CreateDirectory(updateDir);
+        string scriptPath = Path.Combine(updateDir, $"install-{Guid.NewGuid():N}.cmd");
+
+        string resultDir = Path.GetDirectoryName(Path.GetFullPath(updateResultPath)) ?? "";
+        string isoNow = DateTimeOffset.UtcNow.ToString("O");
+
+        string mkdirBlock = !string.IsNullOrWhiteSpace(resultDir)
+            ? $"if not exist {QuoteCmdArgument(resultDir)} mkdir {QuoteCmdArgument(resultDir)}"
+            : "";
 
         string scriptContent = $@"@echo off
+setlocal
+
 timeout /t 1 /nobreak >nul
-""{installerPath}"" /SILENT /SUPPRESSMSGBOXES
-timeout /t 1 /nobreak >nul
-start """" ""{targetExePath}""
-del ""%~f0""
+
+start /wait """" {QuoteCmdArgument(installerPath)} /SILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS /DIR={QuoteCmdArgument(targetDirectory)} /LOG={QuoteCmdArgument(logPath)}
+
+set ""OWH_EXIT=%ERRORLEVEL%""
+set ""OWH_RESTARTED=false""
+
+if ""%OWH_EXIT%""==""0"" (
+    set ""OWH_RESTARTED=true""
+    start """" {QuoteCmdArgument(targetExePath)}
+)
+
+{mkdirBlock}
+
+(
+echo {{
+echo   ""schemaVersion"": 1,
+echo   ""version"": ""{targetVersion}"",
+echo   ""completedAt"": ""{isoNow}"",
+echo   ""installerExitCode"": %OWH_EXIT%,
+echo   ""restarted"": %OWH_RESTARTED%
+echo }}
+) > {QuoteCmdArgument(updateResultPath)}
+
+del /q {QuoteCmdArgument(installerPath)} >nul 2>&1
+del /q ""%~f0"" >nul 2>&1
+
+exit /b %OWH_EXIT%
 ";
 
         File.WriteAllText(scriptPath, scriptContent);

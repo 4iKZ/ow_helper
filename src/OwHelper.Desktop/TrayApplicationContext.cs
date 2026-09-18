@@ -28,7 +28,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         AppStartupResult startup = AppStartup.Initialize("desktop", AppMessages.Write, ConfirmRecovery);
         log = startup.Log;
         AppConfig config = startup.Config;
-        controller = new TrayController(startup.Session, log, config, startup.Problems);
+        controller = new TrayController(startup.Session, log, config, startup.Problems, startup.UpdateFailureMessage);
         controller.InstallVerifiedPackageAsync = InstallVerifiedUpdateAndExitAsync;
 
         statusItem = new ToolStripMenuItem("…") { Enabled = false };
@@ -184,6 +184,16 @@ internal sealed class TrayApplicationContext : ApplicationContext
     {
         if (startupProblemsHintShown) return;
         startupProblemsHintShown = true;
+
+        if (!string.IsNullOrEmpty(controller.UpdateFailureMessage))
+        {
+            MessageBox.Show(
+                controller.UpdateFailureMessage,
+                "更新未完成",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+        }
+
         if (controller.StartupProblems.Count == 0) return;
         notifyIcon.BalloonTipTitle = "OW 助手";
         notifyIcon.BalloonTipText = $"有 {controller.StartupProblems.Count} 项设置已自动修正，详情见运行记录。";
@@ -281,7 +291,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         notifyIcon.Visible = false;
         notifyIcon.Dispose();
 
-        string scriptPath = UpdateService.CreateRestartScript(package.FilePath, target.RestartExecutablePath);
+        string scriptPath = UpdateService.CreateRestartScript(package.FilePath, target.RestartExecutablePath, target.TargetDirectory, package.Version);
         var psi = new ProcessStartInfo("cmd.exe", $"/c \"{scriptPath}\"")
         {
             CreateNoWindow = true,

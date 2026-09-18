@@ -19,12 +19,18 @@ public sealed class TrayController
     readonly Session session;
     readonly AppLog log;
 
-    public TrayController(Session session, AppLog log, AppConfig config, IReadOnlyList<string> startupProblems)
+    public TrayController(
+        Session session,
+        AppLog log,
+        AppConfig config,
+        IReadOnlyList<string> startupProblems,
+        string? updateFailureMessage = null)
     {
         this.session = session;
         this.log = log;
         Config = config;
         StartupProblems = startupProblems;
+        UpdateFailureMessage = updateFailureMessage;
         GpuGuide = BuildGpuGuide(config, GpuEnvironment.Detect());
         UpdateService = new UpdateService(log: log);
     }
@@ -34,6 +40,8 @@ public sealed class TrayController
     public AppConfig Config { get; private set; }
 
     public IReadOnlyList<string> StartupProblems { get; }
+
+    public string? UpdateFailureMessage { get; }
 
     public string? GpuGuide { get; }
 
