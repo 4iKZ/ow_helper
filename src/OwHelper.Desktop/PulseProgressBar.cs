@@ -6,7 +6,7 @@ using System.Windows.Forms;
 namespace OwHelper.Desktop;
 
 /// <summary>
-/// 纯 GDI+ 双缓冲平滑进度条，支持脉冲触发瞬间高亮反馈
+/// 纯 GDI+ 双缓冲平滑进度条，支持脉冲触发瞬间高亮反馈，杜绝边缘黑边
 /// </summary>
 public sealed class PulseProgressBar : Control
 {
@@ -19,7 +19,8 @@ public sealed class PulseProgressBar : Control
             ControlStyles.UserPaint |
             ControlStyles.AllPaintingInWmPaint |
             ControlStyles.OptimizedDoubleBuffer |
-            ControlStyles.ResizeRedraw,
+            ControlStyles.ResizeRedraw |
+            ControlStyles.SupportsTransparentBackColor,
             true);
     }
 
@@ -57,26 +58,46 @@ public sealed class PulseProgressBar : Control
         return new Size(w, h);
     }
 
+    protected override void OnParentChanged(EventArgs e)
+    {
+        base.OnParentChanged(e);
+        Invalidate();
+    }
+
+    protected override void OnParentBackColorChanged(EventArgs e)
+    {
+        base.OnParentBackColorChanged(e);
+        Invalidate();
+    }
+
     protected override void OnPaint(PaintEventArgs e)
     {
         base.OnPaint(e);
         Graphics g = e.Graphics;
         g.SmoothingMode = SmoothingMode.AntiAlias;
+        g.PixelOffsetMode = PixelOffsetMode.HighQuality;
 
-        var bounds = new Rectangle(0, 0, Width - 1, Height - 1);
-        int radius = Height / 2;
+        if (Width <= 0 || Height <= 0) return;
 
-        // 背景槽
+        // 1. 彻底用父容器实际可见背景色清屏，杜绝未初始化黑色像素与倒角黑边
+        Color parentBg = GetEffectiveParentBackColor();
+        g.Clear(parentBg);
+
+        float strokeInset = 0.5f;
+        var bounds = new RectangleF(strokeInset, strokeInset, Math.Max(1f, Width - 1f), Math.Max(1f, Height - 1f));
+        float radius = bounds.Height / 2f;
+
+        // 2. 绘制背景槽
         using (var bgBrush = new SolidBrush(Palette.AccentLight))
         {
             FillRoundedRect(g, bgBrush, bounds, radius);
         }
 
-        // 填充进度
-        int fillWidth = (int)(bounds.Width * progress);
-        if (fillWidth > 2)
+        // 3. 填充进度
+        float fillWidth = (float)(bounds.Width * progress);
+        if (fillWidth > 2f)
         {
-            var fillBounds = new Rectangle(0, 0, fillWidth, bounds.Height);
+            var fillBounds = new RectangleF(bounds.X, bounds.Y, fillWidth, bounds.Height);
             Color fillColor = isFlashing ? Color.Gold : Palette.Accent;
             using (var fillBrush = new SolidBrush(fillColor))
             {
@@ -84,36 +105,50 @@ public sealed class PulseProgressBar : Control
             }
         }
 
-        // 外边框
-        using (var borderPen = new Pen(Palette.Border))
+        // 4. 外边框
+        using (var borderPen = new Pen(Palette.Border, 1))
         {
             DrawRoundedRect(g, borderPen, bounds, radius);
         }
     }
 
-    static void FillRoundedRect(Graphics g, Brush brush, Rectangle bounds, int radius)
+    Color GetEffectiveParentBackColor()
+    {
+        Control? p = Parent;
+        while (p != null)
+        {
+            if (p.BackColor != Color.Transparent && p.BackColor != Color.Empty && p.BackColor.A == 255)
+            {
+                return p.BackColor;
+            }
+            p = p.Parent;
+        }
+        return Palette.Paper;
+    }
+
+    static void FillRoundedRect(Graphics g, Brush brush, RectangleF bounds, float radius)
     {
         using var path = GetRoundedPath(bounds, radius);
         g.FillPath(brush, path);
     }
 
-    static void DrawRoundedRect(Graphics g, Pen pen, Rectangle bounds, int radius)
+    static void DrawRoundedRect(Graphics g, Pen pen, RectangleF bounds, float radius)
     {
         using var path = GetRoundedPath(bounds, radius);
         g.DrawPath(pen, path);
     }
 
-    static GraphicsPath GetRoundedPath(Rectangle bounds, int radius)
+    static GraphicsPath GetRoundedPath(RectangleF bounds, float radius)
     {
         var path = new GraphicsPath();
-        int diameter = Math.Min(radius * 2, Math.Min(bounds.Width, bounds.Height));
-        if (diameter <= 0)
+        float diameter = Math.Min(radius * 2f, Math.Min(bounds.Width, bounds.Height));
+        if (diameter <= 0.5f)
         {
             path.AddRectangle(bounds);
             return path;
         }
 
-        var arc = new Rectangle(bounds.Location, new Size(diameter, diameter));
+        var arc = new RectangleF(bounds.Location, new SizeF(diameter, diameter));
         path.AddArc(arc, 180, 90);
         arc.X = bounds.Right - diameter;
         path.AddArc(arc, 270, 90);

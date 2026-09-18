@@ -6,7 +6,7 @@ using System.Windows.Forms;
 namespace OwHelper.Desktop;
 
 /// <summary>
-/// 纯 GDI+ 双缓冲现代圆角按钮，支持微圆角、平滑抗锯齿与完美居中文本
+/// 纯 GDI+ 双缓冲现代圆角按钮，支持微圆角、平滑抗锯齿与完美居中文本，杜绝黑色边缘
 /// </summary>
 public class RoundedButton : Button
 {
@@ -24,7 +24,8 @@ public class RoundedButton : Button
             ControlStyles.UserPaint |
             ControlStyles.AllPaintingInWmPaint |
             ControlStyles.OptimizedDoubleBuffer |
-            ControlStyles.ResizeRedraw,
+            ControlStyles.ResizeRedraw |
+            ControlStyles.SupportsTransparentBackColor,
             true);
         FlatStyle = FlatStyle.Flat;
         FlatAppearance.BorderSize = 0;
@@ -60,6 +61,18 @@ public class RoundedButton : Button
     {
         get => pressedBackColor;
         set { pressedBackColor = value; Invalidate(); }
+    }
+
+    protected override void OnParentChanged(EventArgs e)
+    {
+        base.OnParentChanged(e);
+        Invalidate();
+    }
+
+    protected override void OnParentBackColorChanged(EventArgs e)
+    {
+        base.OnParentBackColorChanged(e);
+        Invalidate();
     }
 
     protected override void OnMouseEnter(EventArgs e)
@@ -101,8 +114,11 @@ public class RoundedButton : Button
         g.PixelOffsetMode = PixelOffsetMode.HighQuality;
         g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
 
-        var rect = new Rectangle(0, 0, Width - 1, Height - 1);
-        if (rect.Width <= 0 || rect.Height <= 0) return;
+        if (Width <= 0 || Height <= 0) return;
+
+        // 1. 彻底用父容器实际可见背景色清屏，杜绝未初始化黑色像素与倒角黑边
+        Color parentBg = GetEffectiveParentBackColor();
+        g.Clear(parentBg);
 
         // 计算当前背景色
         Color currentBg = BackColor;
@@ -122,7 +138,15 @@ public class RoundedButton : Button
             currentBg = effectiveHover;
         }
 
-        using (var path = GetRoundedRectanglePath(rect, cornerRadius))
+        // 2. 绘制圆角背景与边框（笔画居中对齐，内缩 strokeInset 防止溢出或留缝）
+        float strokeInset = borderSize > 0 ? (borderSize / 2f) : 0f;
+        var rectF = new RectangleF(
+            strokeInset,
+            strokeInset,
+            Math.Max(1f, Width - borderSize),
+            Math.Max(1f, Height - borderSize));
+
+        using (var path = GetRoundedRectanglePath(rectF, cornerRadius))
         {
             // 填充圆角背景
             using (var brush = new SolidBrush(currentBg))
@@ -138,7 +162,7 @@ public class RoundedButton : Button
             }
         }
 
-        // 居中或按 TextAlign 绘制文本
+        // 3. 居中或按 TextAlign 绘制文本
         if (!string.IsNullOrEmpty(Text))
         {
             Color currentText = Enabled ? ForeColor : Palette.InkMuted;
@@ -152,14 +176,12 @@ public class RoundedButton : Button
                 FormatFlags = StringFormatFlags.NoWrap,
             };
 
-            // 计算文本矩形（扣除 Padding）
             var textRect = new Rectangle(
-                rect.Left + Padding.Left,
-                rect.Top + Padding.Top,
-                Math.Max(1, rect.Width - Padding.Horizontal),
-                Math.Max(1, rect.Height - Padding.Vertical));
+                Padding.Left,
+                Padding.Top,
+                Math.Max(1, Width - Padding.Horizontal),
+                Math.Max(1, Height - Padding.Vertical));
 
-            // 按压时微下沉 1 像素反馈
             if (isPressed)
             {
                 textRect.Offset(0, 1);
@@ -167,6 +189,20 @@ public class RoundedButton : Button
 
             g.DrawString(Text, Font, textBrush, textRect, sf);
         }
+    }
+
+    Color GetEffectiveParentBackColor()
+    {
+        Control? p = Parent;
+        while (p != null)
+        {
+            if (p.BackColor != Color.Transparent && p.BackColor != Color.Empty && p.BackColor.A == 255)
+            {
+                return p.BackColor;
+            }
+            p = p.Parent;
+        }
+        return Palette.Paper;
     }
 
     static (StringAlignment, StringAlignment) AlignToStringFormat(ContentAlignment align) => align switch
@@ -182,17 +218,17 @@ public class RoundedButton : Button
         _ => (StringAlignment.Center, StringAlignment.Center),
     };
 
-    static GraphicsPath GetRoundedRectanglePath(Rectangle bounds, int radius)
+    static GraphicsPath GetRoundedRectanglePath(RectangleF bounds, float radius)
     {
         var path = new GraphicsPath();
-        int diameter = Math.Min(radius * 2, Math.Min(bounds.Width, bounds.Height));
-        if (diameter <= 0)
+        float diameter = Math.Min(radius * 2f, Math.Min(bounds.Width, bounds.Height));
+        if (diameter <= 0.5f)
         {
             path.AddRectangle(bounds);
             return path;
         }
 
-        var arc = new Rectangle(bounds.Location, new Size(diameter, diameter));
+        var arc = new RectangleF(bounds.Location, new SizeF(diameter, diameter));
         path.AddArc(arc, 180, 90);
         arc.X = bounds.Right - diameter;
         path.AddArc(arc, 270, 90);

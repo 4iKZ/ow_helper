@@ -29,6 +29,6 @@ Windows 后台输入调度器：让《守望先锋》在后台自动按设定按
 
 ## 当前状态与下一步
 
-- 版本 1.1.2（MIT；GitHub Release 双包 + 安装包 + SHA256）；全新 Windows 11 现代精致 UI（原生双缓冲抗锯齿圆角按钮、微软雅黑排版、2x2 KPI 核心数据卡片与字号自适应、平滑倒计时进度条与扁平战术图标）。
+- 版本 1.1.3（MIT；GitHub Release 双包 + 安装包 + SHA256）；彻底消除 Win11 高 DPI 与双缓冲未初始化导致的倒角黑边、纯黑底缝与脏矩形残留，全控件动态继承容器背景实现丝滑抗锯齿。
 - 发布：发版前改 `Directory.Build.props` 的 `Version`，推送 `tag v*` 后 `release.yml` 自动构建双包、安装包并建 Release。
 - 待办：① 4 小时 soak 与"游戏最小化"实测（用户侧，含 NoActivate 真实前台行为）② `ResourceGovernor.Snapshot` 公开面去留（`docs/plans/2026-09-18-architecture-review.md` 发现 9）。

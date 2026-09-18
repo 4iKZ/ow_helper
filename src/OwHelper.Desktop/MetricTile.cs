@@ -6,7 +6,7 @@ using System.Windows.Forms;
 namespace OwHelper.Desktop;
 
 /// <summary>
-/// 现代 6px 圆角 KPI 指标卡片控件，双缓冲抗锯齿绘制居中标题与大号数值
+/// 现代 6px 圆角 KPI 指标卡片控件，双缓冲抗锯齿绘制居中标题与大号数值，杜绝边缘黑边
 /// </summary>
 public class MetricTile : Control
 {
@@ -22,7 +22,8 @@ public class MetricTile : Control
             ControlStyles.UserPaint |
             ControlStyles.AllPaintingInWmPaint |
             ControlStyles.OptimizedDoubleBuffer |
-            ControlStyles.ResizeRedraw,
+            ControlStyles.ResizeRedraw |
+            ControlStyles.SupportsTransparentBackColor,
             true);
         BackColor = Palette.SurfaceSubtle;
         titleFont = new Font("Microsoft YaHei UI", 8.5f);
@@ -58,6 +59,18 @@ public class MetricTile : Control
         }
     }
 
+    protected override void OnParentChanged(EventArgs e)
+    {
+        base.OnParentChanged(e);
+        Invalidate();
+    }
+
+    protected override void OnParentBackColorChanged(EventArgs e)
+    {
+        base.OnParentBackColorChanged(e);
+        Invalidate();
+    }
+
     protected override void OnPaint(PaintEventArgs e)
     {
         Graphics g = e.Graphics;
@@ -65,11 +78,16 @@ public class MetricTile : Control
         g.PixelOffsetMode = PixelOffsetMode.HighQuality;
         g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
 
-        var rect = new Rectangle(0, 0, Width - 1, Height - 1);
-        if (rect.Width <= 0 || rect.Height <= 0) return;
+        if (Width <= 0 || Height <= 0) return;
 
-        // 1. 绘制 6px 圆角背景和边框
-        using (var path = GetRoundedRectanglePath(rect, 6))
+        // 1. 彻底用父容器实际可见背景色清屏，杜绝未初始化黑色像素与倒角黑边
+        Color parentBg = GetEffectiveParentBackColor();
+        g.Clear(parentBg);
+
+        // 2. 绘制 6px 圆角背景和边框
+        float strokeInset = 0.5f;
+        var rectF = new RectangleF(strokeInset, strokeInset, Math.Max(1f, Width - 1f), Math.Max(1f, Height - 1f));
+        using (var path = GetRoundedRectanglePath(rectF, 6))
         {
             using (var bgBrush = new SolidBrush(BackColor))
             {
@@ -89,14 +107,14 @@ public class MetricTile : Control
             FormatFlags = StringFormatFlags.NoWrap,
         };
 
-        // 2. 绘制标题（居中偏上）
+        // 3. 绘制标题（居中偏上）
         var titleRect = new Rectangle(4, 5, Width - 8, 18);
         using (var titleBrush = new SolidBrush(Palette.InkMuted))
         {
             g.DrawString(title, titleFont, titleBrush, titleRect, sf);
         }
 
-        // 3. 绘制主数值（居中偏下，自动适应卡片宽度避免截断）
+        // 4. 绘制主数值（居中偏下，自动适应卡片宽度避免截断）
         var valueRect = new Rectangle(4, 23, Width - 8, Height - 27);
         Font activeValueFont = valueFont;
         bool fontCreated = false;
@@ -116,17 +134,31 @@ public class MetricTile : Control
         if (fontCreated) activeValueFont.Dispose();
     }
 
-    static GraphicsPath GetRoundedRectanglePath(Rectangle bounds, int radius)
+    Color GetEffectiveParentBackColor()
+    {
+        Control? p = Parent;
+        while (p != null)
+        {
+            if (p.BackColor != Color.Transparent && p.BackColor != Color.Empty && p.BackColor.A == 255)
+            {
+                return p.BackColor;
+            }
+            p = p.Parent;
+        }
+        return Palette.Paper;
+    }
+
+    static GraphicsPath GetRoundedRectanglePath(RectangleF bounds, float radius)
     {
         var path = new GraphicsPath();
-        int diameter = radius * 2;
-        if (diameter <= 0)
+        float diameter = radius * 2f;
+        if (diameter <= 0.5f)
         {
             path.AddRectangle(bounds);
             return path;
         }
 
-        var arc = new Rectangle(bounds.Location, new Size(diameter, diameter));
+        var arc = new RectangleF(bounds.Location, new SizeF(diameter, diameter));
         path.AddArc(arc, 180, 90);
         arc.X = bounds.Right - diameter;
         path.AddArc(arc, 270, 90);

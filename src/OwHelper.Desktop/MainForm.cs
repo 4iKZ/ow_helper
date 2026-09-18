@@ -42,6 +42,7 @@ public sealed class MainForm : Form
     readonly RoundedButton guideToggleButton = new RoundedButton();
     readonly Panel guideCard = new Panel();
 
+    readonly DoubleBufferedTableLayoutPanel rootLayout;
     int lastKnownPulseCount = -1;
     bool guideExpanded;
     bool exiting;
@@ -49,6 +50,13 @@ public sealed class MainForm : Form
     public MainForm(TrayController controller)
     {
         this.controller = controller;
+
+        SetStyle(
+            ControlStyles.OptimizedDoubleBuffer |
+            ControlStyles.AllPaintingInWmPaint |
+            ControlStyles.ResizeRedraw,
+            true);
+        DoubleBuffered = true;
 
         Text = "OW 助手 v" + System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString(3);
         BackColor = Palette.Paper;
@@ -67,7 +75,7 @@ public sealed class MainForm : Form
         }
         catch { }
 
-        var root = new TableLayoutPanel
+        rootLayout = new DoubleBufferedTableLayoutPanel
         {
             Dock = DockStyle.Fill,
             Padding = new Padding(22, 16, 22, 16),
@@ -76,18 +84,18 @@ public sealed class MainForm : Form
             BackColor = Palette.Paper,
             AutoScroll = true,
         };
-        root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
-        root.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Header
-        root.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Dashboard (左右双卡片)
-        root.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Actions
-        root.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Guide (可折叠)
+        rootLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+        rootLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Header
+        rootLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Dashboard (左右双卡片)
+        rootLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Actions
+        rootLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Guide (可折叠)
 
-        root.Controls.Add(BuildHeader(), 0, 0);
-        root.Controls.Add(BuildDashboard(), 0, 1);
-        root.Controls.Add(BuildActions(), 0, 2);
-        root.Controls.Add(BuildGuideCard(), 0, 3);
+        rootLayout.Controls.Add(BuildHeader(), 0, 0);
+        rootLayout.Controls.Add(BuildDashboard(), 0, 1);
+        rootLayout.Controls.Add(BuildActions(), 0, 2);
+        rootLayout.Controls.Add(BuildGuideCard(), 0, 3);
 
-        Controls.Add(root);
+        Controls.Add(rootLayout);
 
         // 状态定时器：每秒轮询状态
         timer = new Timer { Interval = 1000 };
@@ -170,12 +178,17 @@ public sealed class MainForm : Form
         connectionBadge.AutoSizeMode = AutoSizeMode.GrowAndShrink;
         connectionBadge.Padding = new Padding(10, 5, 12, 5);
         connectionBadge.Margin = new Padding(0, 2, 0, 0);
-        connectionBadge.BackColor = Palette.Panel;
+        connectionBadge.BackColor = Palette.Paper;
         connectionBadge.Paint += (s, e) =>
         {
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            using var pen = new Pen(Palette.Border);
-            DrawRoundedRectangle(e.Graphics, pen, new Rectangle(0, 0, connectionBadge.Width - 1, connectionBadge.Height - 1), 6);
+            float strokeInset = 0.5f;
+            var rectF = new RectangleF(strokeInset, strokeInset, Math.Max(1f, connectionBadge.Width - 1f), Math.Max(1f, connectionBadge.Height - 1f));
+            using var path = GetRoundedRectanglePathF(rectF, 6);
+            using var bgBrush = new SolidBrush(Palette.Panel);
+            using var pen = new Pen(Palette.Border, 1);
+            e.Graphics.FillPath(bgBrush, path);
+            e.Graphics.DrawPath(pen, path);
         };
 
         var badgeLayout = new FlowLayoutPanel
@@ -469,7 +482,7 @@ public sealed class MainForm : Form
     Control BuildGuideCard()
     {
         guideCard.Dock = DockStyle.Fill;
-        guideCard.BackColor = Palette.Panel;
+        guideCard.BackColor = Palette.Paper;
         guideCard.Padding = new Padding(14, 12, 14, 12);
         guideCard.Margin = new Padding(0, 0, 0, 6);
         guideCard.AutoSize = true;
@@ -478,8 +491,13 @@ public sealed class MainForm : Form
         guideCard.Paint += (s, e) =>
         {
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            using var pen = new Pen(Palette.Border);
-            DrawRoundedRectangle(e.Graphics, pen, new Rectangle(0, 0, guideCard.Width - 1, guideCard.Height - 1), 6);
+            float strokeInset = 0.5f;
+            var rectF = new RectangleF(strokeInset, strokeInset, Math.Max(1f, guideCard.Width - 1f), Math.Max(1f, guideCard.Height - 1f));
+            using var path = GetRoundedRectanglePathF(rectF, 6);
+            using var bgBrush = new SolidBrush(Palette.Panel);
+            using var pen = new Pen(Palette.Border, 1);
+            e.Graphics.FillPath(bgBrush, path);
+            e.Graphics.DrawPath(pen, path);
         };
 
         var layout = new TableLayoutPanel
@@ -633,14 +651,15 @@ public sealed class MainForm : Form
         bossKeyButton.Text = controller.Session.IsOffscreen ? "恢复游戏窗口" : "老板键";
 
         connectionBadge.Invalidate();
+        rootLayout.Invalidate(true);
     }
 
     protected override void OnLoad(EventArgs e)
     {
         base.OnLoad(e);
         Rectangle work = Screen.FromControl(this).WorkingArea;
-        int width = Math.Min(680 * DeviceDpi / 96, work.Width - 40);
-        int height = Math.Min(540 * DeviceDpi / 96, work.Height - 40);
+        int width = Math.Min(680, work.Width - 20);
+        int height = Math.Min(540, work.Height - 20);
         ClientSize = new Size(width, height);
         Left = work.Left + (work.Width - Width) / 2;
         Top = work.Top + (work.Height - Height) / 2;
@@ -675,18 +694,59 @@ public sealed class MainForm : Form
         var card = new Panel
         {
             Dock = DockStyle.Fill,
-            BackColor = Palette.Panel,
+            BackColor = Palette.Paper,
             Padding = new Padding(16, 14, 16, 14),
             AutoSize = true,
             AutoSizeMode = AutoSizeMode.GrowAndShrink,
         };
         card.Paint += (s, e) =>
         {
-            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            using var pen = new Pen(Palette.Border);
-            DrawRoundedRectangle(e.Graphics, pen, new Rectangle(0, 0, card.Width - 1, card.Height - 1), 6);
+            var g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            float strokeInset = 0.5f;
+            var rectF = new RectangleF(strokeInset, strokeInset, Math.Max(1f, card.Width - 1f), Math.Max(1f, card.Height - 1f));
+            using var path = GetRoundedRectanglePathF(rectF, 6);
+            using var bgBrush = new SolidBrush(Palette.Panel);
+            using var pen = new Pen(Palette.Border, 1);
+            g.FillPath(bgBrush, path);
+            g.DrawPath(pen, path);
         };
         return card;
+    }
+
+    sealed class DoubleBufferedTableLayoutPanel : TableLayoutPanel
+    {
+        public DoubleBufferedTableLayoutPanel()
+        {
+            SetStyle(
+                ControlStyles.AllPaintingInWmPaint |
+                ControlStyles.OptimizedDoubleBuffer |
+                ControlStyles.ResizeRedraw,
+                true);
+            DoubleBuffered = true;
+        }
+    }
+
+    static GraphicsPath GetRoundedRectanglePathF(RectangleF bounds, float radius)
+    {
+        var path = new GraphicsPath();
+        float diameter = radius * 2f;
+        if (diameter <= 0.5f)
+        {
+            path.AddRectangle(bounds);
+            return path;
+        }
+
+        var arc = new RectangleF(bounds.Location, new SizeF(diameter, diameter));
+        path.AddArc(arc, 180, 90);
+        arc.X = bounds.Right - diameter;
+        path.AddArc(arc, 270, 90);
+        arc.Y = bounds.Bottom - diameter;
+        path.AddArc(arc, 0, 90);
+        arc.X = bounds.Left;
+        path.AddArc(arc, 90, 90);
+        path.CloseFigure();
+        return path;
     }
 
     static void ConfigureValueLabel(Label label, float size, Color color, bool bold = false)
