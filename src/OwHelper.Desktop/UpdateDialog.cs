@@ -256,12 +256,15 @@ public sealed class UpdateDialog : Form
     {
         if (isDownloading) return;
 
-        // 1. 便携绿色版路径检测
-        if (!UpdateService.IsStandardInstalledPath())
+        // 1. 便携绿色版与安装上下文检测
+        InstallContext installContext = InstallContextDetector.Detect();
+        InstallTarget target;
+
+        if (installContext.Mode == InstallMode.Portable)
         {
             DialogResult res = MessageBox.Show(this,
-                $"检测到当前程序运行于非标准安装目录：\n{Environment.ProcessPath}\n\n" +
-                "【是(Yes)】：通过安装包升级并迁移至标准应用目录（推荐，享有桌面快捷方式与后续无缝自更）；\n" +
+                "当前为绿色便携版。\n\n" +
+                "【是(Yes)】：安装到标准应用目录并自动更新（推荐，享有桌面快捷方式与后续无缝自更）；\n" +
                 "【否(No)】：打开浏览器前往 GitHub Releases 下载便携绿色版 Zip 包；\n" +
                 "【取消(Cancel)】：取消本次更新。",
                 "便携版更新提示",
@@ -275,6 +278,16 @@ public sealed class UpdateDialog : Form
                 OpenBrowser(zipUrl);
                 return;
             }
+
+            target = new InstallTarget(
+                TargetDirectory: UpdateService.StandardInstallDirectory,
+                RestartExecutablePath: UpdateService.StandardExecutablePath);
+        }
+        else
+        {
+            target = new InstallTarget(
+                TargetDirectory: installContext.CurrentDirectory,
+                RestartExecutablePath: installContext.CurrentExecutablePath);
         }
 
         // 2. 开始下载流程（下载期间保持 Session 继续运行）
@@ -344,12 +357,6 @@ public sealed class UpdateDialog : Form
         }
 
         statusLabel.Text = "准备安装更新并安全退出程序...";
-        string curExe = Environment.ProcessPath ?? UpdateService.StandardExecutablePath;
-        string curDir = Path.GetDirectoryName(curExe) ?? UpdateService.StandardInstallDirectory;
-        var target = new InstallTarget(
-            TargetDirectory: UpdateService.IsStandardInstalledPath() ? UpdateService.StandardInstallDirectory : curDir,
-            RestartExecutablePath: curExe);
-
         await installVerifiedPackageAsync(package, target);
         if (!IsDisposed)
         {

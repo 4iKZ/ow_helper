@@ -53,6 +53,7 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 ; 只发桌面版（含共享依赖）；控制台与诊断工具留在 zip 包里给折腾党。
 ; 调试符号不进安装包。
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs; Excludes: "*.pdb,OwHelper.exe,BgKeyProbe.exe"
+Source: "{#SourcePath}\owhelper.install.marker"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\OW 助手"; Filename: "{app}\{#MyAppExe}"
