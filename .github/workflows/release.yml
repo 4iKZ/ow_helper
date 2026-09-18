@@ -16,6 +16,20 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
+      - name: Enforce tag matches Directory.Build.props version
+        shell: pwsh
+        run: |
+          $tag = '${{ github.ref_name }}'
+          if ($tag -notmatch '^v\d+\.\d+\.\d+$') {
+              throw "release tag must be vMAJOR.MINOR.PATCH"
+          }
+          $tagVersion = $tag.Substring(1)
+          [xml]$props = Get-Content Directory.Build.props
+          $codeVersion = [string]$props.Project.PropertyGroup.Version
+          if ($tagVersion -ne $codeVersion) {
+              throw "Tag version $tagVersion != Directory.Build.props $codeVersion"
+          }
+
       - name: Restore
         run: dotnet restore ow_helper.sln
 
