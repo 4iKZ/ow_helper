@@ -18,7 +18,9 @@ public sealed class WindowPlacementController : IWindowPlacementController
 
     public bool IsOffscreen => current?.IsOffscreen ?? false;
 
-    public bool TaskbarHidden => current?.TaskbarHidden ?? false;
+    public bool StyleRestorePending => current?.StyleRestorePending ?? false;
+
+    public bool NeedsRestore => current?.NeedsRestore ?? false;
 
     public long OriginalExStyle => current?.OriginalExStyle ?? 0;
 

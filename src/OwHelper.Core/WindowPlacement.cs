@@ -21,13 +21,25 @@ public sealed class WindowPlacement
 
     readonly IntPtr hwnd;
     readonly int pid;
+    readonly Func<IntPtr, int, int, int, WindowPlacementResult> moveTo;
+    readonly Func<IntPtr, int, long, WindowStyleResult> restoreStyle;
     Native.RECT saved;
     long originalExStyle;
 
     public WindowPlacement(IntPtr hwnd, int pid)
+        : this(hwnd, pid, WindowMover.MoveTo, WindowStyle.RestoreStyle)
+    {
+    }
+
+    internal WindowPlacement(
+        IntPtr hwnd, int pid,
+        Func<IntPtr, int, int, int, WindowPlacementResult> moveTo,
+        Func<IntPtr, int, long, WindowStyleResult> restoreStyle)
     {
         this.hwnd = hwnd;
         this.pid = pid;
+        this.moveTo = moveTo;
+        this.restoreStyle = restoreStyle;
     }
 
     public IntPtr Handle => hwnd;
@@ -36,9 +48,13 @@ public sealed class WindowPlacement
 
     public PlacementState State { get; private set; } = PlacementState.None;
 
-    public bool IsOffscreen => State == PlacementState.Offscreen;
+    public bool PositionRestorePending { get; private set; }
 
-    public bool TaskbarHidden { get; private set; }
+    public bool StyleRestorePending { get; private set; }
+
+    public bool NeedsRestore => PositionRestorePending || StyleRestorePending;
+
+    public bool IsOffscreen => PositionRestorePending;
 
     public long OriginalExStyle => originalExStyle;
 
@@ -46,7 +62,7 @@ public sealed class WindowPlacement
     {
         left = saved.Left;
         top = saved.Top;
-        return State is PlacementState.Captured or PlacementState.Offscreen;
+        return PositionRestorePending;
     }
 
     public WindowPlacementResult MoveOffscreen(bool hideFromTaskbar = false)
@@ -78,29 +94,32 @@ public sealed class WindowPlacement
                 return new WindowPlacementResult(false, style.Message, style.NativeError);
             }
             originalExStyle = style.OriginalExStyle;
-            TaskbarHidden = true;
+            StyleRestorePending = true;
         }
 
         saved = rect;
-        State = PlacementState.Captured;
 
-        WindowPlacementResult moved = WindowMover.MoveTo(hwnd, pid, OffscreenX, OffscreenY);
+        WindowPlacementResult moved = moveTo(hwnd, pid, OffscreenX, OffscreenY);
         if (!moved.Success)
         {
-            if (TaskbarHidden)
+            string message = moved.Message;
+            int? error = moved.NativeError;
+            if (StyleRestorePending)
             {
-                WindowStyle.RestoreStyle(hwnd, pid, originalExStyle);
-                TaskbarHidden = false;
+                WindowStyleResult rollback = restoreStyle(hwnd, pid, originalExStyle);
+                if (rollback.Success) StyleRestorePending = false;
+                else { message += $"; rollback failed: {rollback.Message}"; error ??= rollback.NativeError; }
             }
-            return moved;
+            return new WindowPlacementResult(false, message, error);
         }
+        PositionRestorePending = true;
         State = PlacementState.Offscreen;
         return moved;
     }
 
     public WindowPlacementResult Restore()
     {
-        if (State == PlacementState.None && !TaskbarHidden)
+        if (!NeedsRestore)
         {
             return new WindowPlacementResult(true, "nothing to restore", null);
         }
@@ -121,24 +140,27 @@ public sealed class WindowPlacement
             WindowStyle.EnsureShown(hwnd);
         }
 
-        WindowPlacementResult moved = WindowMover.MoveTo(hwnd, pid, saved.Left, saved.Top);
-        if (!moved.Success)
+        string message = "";
+        int? error = null;
+        if (PositionRestorePending)
+        {
+            WindowPlacementResult moved = moveTo(hwnd, pid, saved.Left, saved.Top);
+            if (moved.Success) PositionRestorePending = false;
+            else { message += moved.Message; error ??= moved.NativeError; }
+        }
+
+        if (StyleRestorePending)
+        {
+            WindowStyleResult style = restoreStyle(hwnd, pid, originalExStyle);
+            if (style.Success) StyleRestorePending = false;
+            else { if (message.Length > 0) message += "; "; message += style.Message; error ??= style.NativeError; }
+        }
+
+        if (NeedsRestore)
         {
             State = PlacementState.RestoreFailed;
-            return moved;
+            return new WindowPlacementResult(false, message, error);
         }
-
-        if (TaskbarHidden)
-        {
-            WindowStyleResult style = WindowStyle.RestoreStyle(hwnd, pid, originalExStyle);
-            TaskbarHidden = false;
-            if (!style.Success)
-            {
-                State = PlacementState.RestoreFailed;
-                return new WindowPlacementResult(false, style.Message, style.NativeError);
-            }
-        }
-
         State = PlacementState.None;
         return new WindowPlacementResult(true, "restored", null);
     }

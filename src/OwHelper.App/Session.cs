@@ -226,12 +226,12 @@ public sealed class Session : IAsyncDisposable
                 }
                 current = target!;
             }
-            if (placement.IsOffscreen)
+            if (placement.NeedsRestore)
             {
                 WindowPlacementResult result = placement.Restore();
                 output(result.Success ? "  OW 窗口已还原" : $"  窗口还原失败: {result.Message}{ErrorCode(result.NativeError)}");
                 LogPlacement("WINDOW_RESTORE", result, current);
-                if (result.Success) ClearPlacementState();
+                if (!placement.NeedsRestore) ClearPlacementState();
             }
             else if (!AllowMoveOffscreen)
             {
@@ -254,12 +254,12 @@ public sealed class Session : IAsyncDisposable
         await gate.WaitAsync();
         try
         {
-            if (placement.IsOffscreen)
+            if (placement.NeedsRestore)
             {
                 WindowPlacementResult result = placement.Restore();
                 output(result.Success ? "  OW 窗口已还原" : $"  窗口还原失败: {result.Message}{ErrorCode(result.NativeError)}");
                 LogPlacement("WINDOW_RESTORE", result, target);
-                if (result.Success) ClearPlacementState();
+                if (!placement.NeedsRestore) ClearPlacementState();
             }
         }
         finally { gate.Release(); }
@@ -275,7 +275,7 @@ public sealed class Session : IAsyncDisposable
             Hwnd: window.Handle.ToInt64(),
             Left: left,
             Top: top,
-            TaskbarHidden: placement.TaskbarHidden,
+            TaskbarHidden: placement.StyleRestorePending,
             OriginalExStyle: placement.OriginalExStyle));
     }
 
@@ -400,14 +400,14 @@ public sealed class Session : IAsyncDisposable
 
         Log(LogLevel.Warning, "TARGET_LOST", pid: oldPid < 0 ? null : oldPid);
 
-        if (placement.IsOffscreen)
+        if (placement.NeedsRestore)
         {
             WindowPlacementResult restoredPlacement = placement.Restore();
             output(restoredPlacement.Success
                 ? "  旧窗口位置已恢复"
                 : $"  旧窗口恢复失败: {restoredPlacement.Message}{ErrorCode(restoredPlacement.NativeError)}");
             LogPlacement("WINDOW_RESTORE", restoredPlacement, target);
-            if (restoredPlacement.Success) ClearPlacementState();
+            if (!placement.NeedsRestore) ClearPlacementState();
         }
         if (oldGovernor != null)
         {
@@ -479,12 +479,12 @@ public sealed class Session : IAsyncDisposable
             output($"  资源恢复：{Describe("已恢复", "CPU 优先级", restored.Priority)}；{Describe("已恢复", "EcoQoS", restored.Power)}");
             LogResourceRestore(restored);
         }
-        if (placement.IsOffscreen)
+        if (placement.NeedsRestore)
         {
             WindowPlacementResult result = placement.Restore();
             output(result.Success ? "  OW 窗口已还原" : $"  窗口还原失败: {result.Message}{ErrorCode(result.NativeError)}");
             LogPlacement("WINDOW_RESTORE", result, target);
-            if (result.Success) ClearPlacementState();
+            if (!placement.NeedsRestore) ClearPlacementState();
         }
         GameWindow? current = target;
         State = current != null && current.IsAlive ? SessionState.Ready : SessionState.WaitingForTarget;

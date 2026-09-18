@@ -67,14 +67,17 @@ public class SessionLifecycleTests
         public int RestoreCalls;
 
         public bool IsOffscreen { get; private set; }
-        public bool TaskbarHidden { get; private set; }
+        public bool StyleRestorePending => hidden;
+        public bool NeedsRestore => IsOffscreen || hidden;
         public long OriginalExStyle => 0;
+
+        bool hidden;
 
         public WindowPlacementResult MoveOffscreen(IntPtr hwnd, int pid, bool hideFromTaskbar)
         {
             MoveCalls++;
             IsOffscreen = true;
-            TaskbarHidden = hideFromTaskbar;
+            hidden = hideFromTaskbar;
             return new WindowPlacementResult(true, "moved", null);
         }
 
@@ -82,6 +85,7 @@ public class SessionLifecycleTests
         {
             RestoreCalls++;
             IsOffscreen = false;
+            hidden = false;
             return new WindowPlacementResult(true, "restored", null);
         }
 
@@ -318,7 +322,7 @@ public class SessionLifecycleTests
         await h.Session.ToggleOffscreenAsync();
 
         Assert.Equal(1, h.Placement.MoveCalls);
-        Assert.True(h.Placement.TaskbarHidden);
+        Assert.True(h.Placement.StyleRestorePending);
     }
 
     [Fact]

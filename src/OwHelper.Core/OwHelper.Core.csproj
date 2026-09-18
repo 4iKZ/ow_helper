@@ -8,4 +8,8 @@
     <RootNamespace>OwHelper.Core</RootNamespace>
   </PropertyGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="OwHelper.Core.Tests" />
+  </ItemGroup>
+
 </Project>

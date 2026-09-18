@@ -23,7 +23,8 @@ public interface IResourceGovernor
 public interface IWindowPlacementController
 {
     bool IsOffscreen { get; }
-    bool TaskbarHidden { get; }
+    bool StyleRestorePending { get; }
+    bool NeedsRestore { get; }
     long OriginalExStyle { get; }
     WindowPlacementResult MoveOffscreen(IntPtr hwnd, int pid, bool hideFromTaskbar);
     WindowPlacementResult Restore();
