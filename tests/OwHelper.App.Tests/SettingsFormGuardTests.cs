@@ -71,5 +71,53 @@ public class SettingsFormGuardTests
         Assert.Null(captured);
         Assert.Equal(0, checkedCount);
     }
+
+    [Fact]
+    public void RenderForms_ToArtifactBitmap()
+    {
+        var thread = new Thread(() =>
+        {
+            var res = AppStartup.Initialize("Snapshot", _ => { }, _ => false);
+            var controller = new TrayController(res.Session, res.Log, res.Config, res.Problems);
+
+            using var mainForm = new MainForm(controller);
+            mainForm.Show();
+            mainForm.RefreshStatus();
+            string dir = @"C:\Users\30253\.gemini\antigravity\brain\7a863414-1063-4849-881c-d02baa44569a";
+            if (System.IO.Directory.Exists(dir))
+            {
+                using var bmp = new System.Drawing.Bitmap(mainForm.Width, mainForm.Height);
+                mainForm.DrawToBitmap(bmp, new System.Drawing.Rectangle(0, 0, mainForm.Width, mainForm.Height));
+                bmp.Save(System.IO.Path.Combine(dir, "main_form_rendered.png"), System.Drawing.Imaging.ImageFormat.Png);
+            }
+
+            using var settingsForm = new SettingsForm(controller);
+            settingsForm.Show();
+            if (System.IO.Directory.Exists(dir))
+            {
+                using var bmpSettings = new System.Drawing.Bitmap(settingsForm.Width, settingsForm.Height);
+                settingsForm.DrawToBitmap(bmpSettings, new System.Drawing.Rectangle(0, 0, settingsForm.Width, settingsForm.Height));
+                bmpSettings.Save(System.IO.Path.Combine(dir, "settings_form_rendered.png"), System.Drawing.Imaging.ImageFormat.Png);
+            }
+
+            // 渲染运行中状态
+            _ = controller.Session.StartAsync();
+            Thread.Sleep(300);
+            mainForm.RefreshStatus();
+            if (System.IO.Directory.Exists(dir))
+            {
+                using var bmpRunning = new System.Drawing.Bitmap(mainForm.Width, mainForm.Height);
+                mainForm.DrawToBitmap(bmpRunning, new System.Drawing.Rectangle(0, 0, mainForm.Width, mainForm.Height));
+                bmpRunning.Save(System.IO.Path.Combine(dir, "main_form_running.png"), System.Drawing.Imaging.ImageFormat.Png);
+            }
+            _ = controller.Session.StopAsync();
+
+            mainForm.CloseForExit();
+            settingsForm.Close();
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join(15000);
+    }
 }
 

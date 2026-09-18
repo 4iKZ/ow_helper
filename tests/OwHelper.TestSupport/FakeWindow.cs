@@ -12,6 +12,12 @@ public sealed class FakeWindow : IDisposable
     const uint WM_DESTROY = 0x0002;
     const uint WS_POPUP = 0x80000000;
 
+    const uint WM_USER_READY = 0x0400 + 42;
+    const uint WM_DWMCOMPOSITIONCHANGED = 0x031F;
+    const uint WM_WINDOWPOSCHANGING = 0x0046;
+    const uint WM_WINDOWPOSCHANGED = 0x0047;
+    const uint WM_NCCALCSIZE = 0x0083;
+
     public readonly record struct Record(uint Msg, IntPtr WParam, IntPtr LParam);
 
     readonly Thread thread;
@@ -33,7 +39,6 @@ public sealed class FakeWindow : IDisposable
         thread = new Thread(ThreadMain) { IsBackground = true };
         thread.Start();
         ready.Wait(5000);
-        lock (records) records.Clear();
     }
 
     void ThreadMain()
@@ -52,7 +57,7 @@ public sealed class FakeWindow : IDisposable
         uint height = topLevel ? 3000u : 100u;
         handle = CreateWindowEx(0, className, className, style, 0, 0, (int)width, (int)height, parent, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero);
         created = true;
-        ready.Set();
+        PostMessage(handle, WM_USER_READY, IntPtr.Zero, IntPtr.Zero);
         while (GetMessage(out MSG msg, IntPtr.Zero, 0, 0) > 0)
         {
             DispatchMessage(ref msg);
@@ -70,6 +75,16 @@ public sealed class FakeWindow : IDisposable
         {
             PostQuitMessage(0);
             return IntPtr.Zero;
+        }
+        if (msg == WM_USER_READY)
+        {
+            lock (records) records.Clear();
+            ready.Set();
+            return IntPtr.Zero;
+        }
+        if (msg is WM_DWMCOMPOSITIONCHANGED or WM_WINDOWPOSCHANGING or WM_WINDOWPOSCHANGED or WM_NCCALCSIZE)
+        {
+            return DefWindowProc(hWnd, msg, wParam, lParam);
         }
         lock (records) records.Add(new Record(msg, wParam, lParam));
         return created ? IntPtr.Zero : DefWindowProc(hWnd, msg, wParam, lParam);

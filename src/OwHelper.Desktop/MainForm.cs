@@ -21,24 +21,25 @@ public sealed class MainForm : Form
     UpdateInfo? cachedUpdateInfo;
 
     // 左卡片：调度与主操作
-    readonly Button mainButton = new Button();
+    readonly RoundedButton mainButton = new RoundedButton();
     readonly Label mainSubtitle = new Label();
     readonly PulseProgressBar progressBar = new PulseProgressBar();
     readonly Label countdownLabel = new Label();
 
-    // 右卡片：状态指标
-    readonly Label runLabel = new Label();
-    readonly Label pulseLabel = new Label();
-    readonly Label windowLabel = new Label();
+    // 右卡片：现代 2x2 指标卡片与状态
+    readonly MetricTile tileRunStatus = new MetricTile { Title = "运行状态", ValueFontSize = 10f };
+    readonly MetricTile tileWindowStatus = new MetricTile { Title = "目标窗口", ValueFontSize = 10f };
+    readonly MetricTile tilePulseCount = new MetricTile { Title = "本次击发", ValueColor = Palette.Accent, ValueFontSize = 13f };
+    readonly MetricTile tileDuration = new MetricTile { Title = "挂机时长", ValueFontSize = 11.5f };
     readonly Label resourceNote = new Label();
     readonly Label latestMessage = new Label();
     readonly Label warningLabel = new Label();
     readonly Label gpuLabel = new Label();
 
     // 底部操作与引导
-    readonly Button bossKeyButton = new Button();
-    readonly Button settingsButton = new Button();
-    readonly Button guideToggleButton = new Button();
+    readonly RoundedButton bossKeyButton = new RoundedButton();
+    readonly RoundedButton settingsButton = new RoundedButton();
+    readonly RoundedButton guideToggleButton = new RoundedButton();
     readonly Panel guideCard = new Panel();
 
     int lastKnownPulseCount = -1;
@@ -53,7 +54,7 @@ public sealed class MainForm : Form
         BackColor = Palette.Paper;
         ForeColor = Palette.Ink;
         AutoScaleMode = AutoScaleMode.None;
-        Font = new Font("Segoe UI", 9f);
+        Font = new Font("Microsoft YaHei UI", 9f);
         ClientSize = new Size(680, 540);
         FormBorderStyle = FormBorderStyle.FixedSingle;
         MaximizeBox = false;
@@ -142,7 +143,7 @@ public sealed class MainForm : Form
         var titleLabel = new Label
         {
             Text = "OW 助手",
-            Font = new Font("Segoe UI Semibold", 15f),
+            Font = new Font("Microsoft YaHei UI", 14f, FontStyle.Bold),
             ForeColor = Palette.Ink,
             AutoSize = true,
             Margin = new Padding(0, 0, 8, 0),
@@ -150,12 +151,12 @@ public sealed class MainForm : Form
 
         string currentVer = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.0.0";
         versionBadge.Text = "v" + currentVer;
-        versionBadge.Font = new Font("Segoe UI", 8.5f);
+        versionBadge.Font = new Font("Microsoft YaHei UI", 8.5f);
         versionBadge.ForeColor = Palette.InkSecondary;
         versionBadge.BackColor = Palette.Border;
-        versionBadge.Padding = new Padding(4, 2, 4, 2);
+        versionBadge.Padding = new Padding(5, 2, 5, 2);
         versionBadge.AutoSize = true;
-        versionBadge.Margin = new Padding(0, 6, 0, 0);
+        versionBadge.Margin = new Padding(0, 5, 0, 0);
         versionBadge.Cursor = Cursors.Hand;
         var tt = new ToolTip();
         tt.SetToolTip(versionBadge, "点击检查新版本");
@@ -188,12 +189,12 @@ public sealed class MainForm : Form
         };
 
         connectionDot.Text = "●";
-        connectionDot.Font = new Font("Segoe UI", 10f);
+        connectionDot.Font = new Font("Microsoft YaHei UI", 9f);
         connectionDot.ForeColor = Palette.StatusStopped;
         connectionDot.AutoSize = true;
         connectionDot.Margin = new Padding(0, 1, 4, 0);
 
-        connectionLabel.Font = new Font("Segoe UI Semibold", 9f);
+        connectionLabel.Font = new Font("Microsoft YaHei UI", 9f, FontStyle.Bold);
         connectionLabel.ForeColor = Palette.Ink;
         connectionLabel.AutoSize = true;
         connectionLabel.Margin = new Padding(0, 1, 0, 0);
@@ -220,8 +221,8 @@ public sealed class MainForm : Form
             BackColor = Palette.Paper,
             Margin = new Padding(0, 0, 0, 12),
         };
-        dashboard.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 54f));
-        dashboard.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 46f));
+        dashboard.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
+        dashboard.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
 
         dashboard.Controls.Add(BuildLeftCard(), 0, 0);
         dashboard.Controls.Add(BuildRightCard(), 1, 0);
@@ -231,7 +232,7 @@ public sealed class MainForm : Form
     Control BuildLeftCard()
     {
         var card = CreateStyledCard();
-        card.Margin = new Padding(0, 0, 8, 0);
+        card.Margin = new Padding(0, 0, 6, 0);
 
         var layout = new TableLayoutPanel
         {
@@ -244,52 +245,56 @@ public sealed class MainForm : Form
         };
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));             // 标题
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 56f));         // 大按钮固定 56px
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 16f));         // 进度条固定 16px
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));             // 进度条 (运行期自适应)
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));             // 倒计时文本
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));             // 节奏副标题
 
         var cardHeader = new Label
         {
             Text = "挂机调度",
-            Font = new Font("Segoe UI Semibold", 11f),
+            Font = new Font("Microsoft YaHei UI", 10.5f, FontStyle.Bold),
             ForeColor = Palette.Ink,
             AutoSize = true,
             Margin = new Padding(0, 0, 0, 10),
         };
 
-        // 大操作按钮（锁定最小高度与垂直居中，确保大号字体永远完整居中）
+        // 大操作按钮（圆角微动效，字体绝对居中）
         mainButton.Text = "开始挂机";
-        mainButton.Font = new Font("Segoe UI Semibold", 13.5f);
+        mainButton.Font = new Font("Microsoft YaHei UI", 13f, FontStyle.Bold);
         mainButton.Dock = DockStyle.Fill;
-        mainButton.Height = 50;
+        mainButton.Height = 52;
         mainButton.MinimumSize = new Size(0, 50);
-        mainButton.TextAlign = ContentAlignment.MiddleCenter;
-        mainButton.FlatStyle = FlatStyle.Flat;
+        mainButton.CornerRadius = 8;
+        mainButton.BorderSize = 0;
         mainButton.BackColor = Palette.Accent;
         mainButton.ForeColor = Color.White;
-        mainButton.FlatAppearance.BorderSize = 0;
-        mainButton.FlatAppearance.MouseOverBackColor = Palette.AccentHover;
-        mainButton.Cursor = Cursors.Hand;
+        mainButton.HoverBackColor = Palette.AccentHover;
+        mainButton.PressedBackColor = Palette.AccentHover;
         mainButton.Margin = new Padding(0, 0, 0, 6);
         mainButton.Click += async (s, e) => await ToggleRunAsync();
 
         // 动态横向倒计时进度条
         progressBar.Dock = DockStyle.Fill;
         progressBar.Height = 10;
-        progressBar.Margin = new Padding(0, 3, 0, 3);
+        progressBar.Margin = new Padding(0, 4, 0, 4);
 
-        // 倒计时文本
-        countdownLabel.Font = new Font("Segoe UI Semibold", 9.5f);
+        // 倒计时文本（水平垂直严格居中）
+        countdownLabel.Font = new Font("Microsoft YaHei UI", 9.5f, FontStyle.Bold);
         countdownLabel.ForeColor = Palette.Accent;
-        countdownLabel.AutoSize = true;
-        countdownLabel.Margin = new Padding(0, 4, 0, 4);
+        countdownLabel.Dock = DockStyle.Fill;
+        countdownLabel.TextAlign = ContentAlignment.MiddleCenter;
+        countdownLabel.AutoSize = false;
+        countdownLabel.Height = 22;
+        countdownLabel.Margin = new Padding(0, 2, 0, 4);
 
-        // 节奏副标题说明（弹性自适应填充）
-        mainSubtitle.Font = new Font("Segoe UI", 9f);
+        // 节奏副标题说明（水平垂直严格居中，容纳两行折行说明）
+        mainSubtitle.Font = new Font("Microsoft YaHei UI", 9f);
         mainSubtitle.ForeColor = Palette.InkSecondary;
-        mainSubtitle.AutoSize = true;
         mainSubtitle.Dock = DockStyle.Fill;
-        mainSubtitle.Margin = new Padding(0, 2, 0, 0);
+        mainSubtitle.TextAlign = ContentAlignment.MiddleCenter;
+        mainSubtitle.AutoSize = false;
+        mainSubtitle.Height = 38;
+        mainSubtitle.Margin = new Padding(0, 6, 0, 0);
 
         layout.Controls.Add(cardHeader, 0, 0);
         layout.Controls.Add(mainButton, 0, 1);
@@ -304,7 +309,7 @@ public sealed class MainForm : Form
     Control BuildRightCard()
     {
         var card = CreateStyledCard();
-        card.Margin = new Padding(8, 0, 0, 0);
+        card.Margin = new Padding(6, 0, 0, 0);
 
         var layout = new TableLayoutPanel
         {
@@ -312,32 +317,61 @@ public sealed class MainForm : Form
             AutoSize = true,
             AutoSizeMode = AutoSizeMode.GrowAndShrink,
             ColumnCount = 1,
-            RowCount = 6,
+            RowCount = 4,
             BackColor = Palette.Panel,
         };
-        for (int i = 0; i < 6; i++) layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // 标题
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // 2x2 指标网格
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // 资源附注
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // 最新消息
 
         var cardHeader = new Label
         {
             Text = "实时监控",
-            Font = new Font("Segoe UI Semibold", 11f),
+            Font = new Font("Microsoft YaHei UI", 10.5f, FontStyle.Bold),
             ForeColor = Palette.Ink,
             AutoSize = true,
-            Margin = new Padding(0, 0, 0, 10),
+            Margin = new Padding(0, 0, 0, 8),
         };
 
-        ConfigureValueLabel(runLabel, 10.5f, Palette.Ink, bold: true);
-        ConfigureValueLabel(pulseLabel, 9f, Palette.InkSecondary);
-        ConfigureValueLabel(windowLabel, 9f, Palette.InkSecondary);
-        ConfigureValueLabel(resourceNote, 9f, Palette.StatusWaiting);
-        ConfigureValueLabel(latestMessage, 9f, Palette.InkMuted);
+        // 2x2 现代指标卡片网格
+        var grid = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            ColumnCount = 2,
+            RowCount = 2,
+            BackColor = Palette.Panel,
+            Margin = new Padding(0, 0, 0, 6),
+        };
+        grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
+        grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
+        grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 56f));
+        grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 56f));
+
+        tileRunStatus.Dock = DockStyle.Fill;
+        tileRunStatus.Margin = new Padding(3);
+        tileWindowStatus.Dock = DockStyle.Fill;
+        tileWindowStatus.Margin = new Padding(3);
+        tilePulseCount.Dock = DockStyle.Fill;
+        tilePulseCount.Margin = new Padding(3);
+        tileDuration.Dock = DockStyle.Fill;
+        tileDuration.Margin = new Padding(3);
+
+        grid.Controls.Add(tileRunStatus, 0, 0);
+        grid.Controls.Add(tileWindowStatus, 1, 0);
+        grid.Controls.Add(tilePulseCount, 0, 1);
+        grid.Controls.Add(tileDuration, 1, 1);
+
+        ConfigureValueLabel(resourceNote, 8.5f, Palette.StatusWaiting);
+        ConfigureValueLabel(latestMessage, 8.5f, Palette.InkMuted);
 
         layout.Controls.Add(cardHeader, 0, 0);
-        layout.Controls.Add(runLabel, 0, 1);
-        layout.Controls.Add(pulseLabel, 0, 2);
-        layout.Controls.Add(windowLabel, 0, 3);
-        layout.Controls.Add(resourceNote, 0, 4);
-        layout.Controls.Add(latestMessage, 0, 5);
+        layout.Controls.Add(grid, 0, 1);
+        layout.Controls.Add(resourceNote, 0, 2);
+        layout.Controls.Add(latestMessage, 0, 3);
 
         card.Controls.Add(layout);
         return card;
@@ -473,7 +507,7 @@ public sealed class MainForm : Form
             {
                 Text = steps[i],
                 ForeColor = Palette.InkSecondary,
-                Font = new Font("Segoe UI", 8.5f),
+                Font = new Font("Microsoft YaHei UI", 8.5f),
                 AutoSize = true,
                 MaximumSize = new Size(600, 0),
                 Margin = new Padding(0, 0, 0, 4),
@@ -497,11 +531,57 @@ public sealed class MainForm : Form
 
         connectionDot.ForeColor = TrayStatusMapper.StatusColor(status);
         connectionLabel.Text = PlainLanguage.Connection(status);
-        runLabel.Text = PlainLanguage.RunState(status);
-        pulseLabel.Text = PlainLanguage.PulseSummary(status);
+
+        bool running = controller.Session.IsRunning;
+
+        // 1. 运行状态
+        tileRunStatus.ValueText = PlainLanguage.RunState(status);
+        tileRunStatus.ValueColor = running ? Palette.Accent : Palette.Ink;
+
+        // 2. 目标窗口
+        if (controller.Session.IsOffscreen)
+        {
+            tileWindowStatus.ValueText = "已隐藏";
+            tileWindowStatus.ValueColor = Palette.StatusWaiting;
+        }
+        else if (status.Pid == null)
+        {
+            tileWindowStatus.ValueText = "未连接";
+            tileWindowStatus.ValueColor = Palette.InkMuted;
+        }
+        else if (status.Minimized)
+        {
+            tileWindowStatus.ValueText = "已最小化";
+            tileWindowStatus.ValueColor = Palette.InkSecondary;
+        }
+        else if (status.Width > 0)
+        {
+            tileWindowStatus.ValueText = $"{status.Width}×{status.Height}";
+            tileWindowStatus.ValueColor = Palette.Ink;
+        }
+        else
+        {
+            tileWindowStatus.ValueText = "已连接";
+            tileWindowStatus.ValueColor = Palette.Ink;
+        }
+
+        // 3. 击发次数
+        tilePulseCount.ValueText = $"{status.RunPulseCount} 次";
+
+        // 4. 挂机时长
+        if (running && status.RunStartedAt is DateTimeOffset started)
+        {
+            var elapsed = DateTimeOffset.Now - started;
+            tileDuration.ValueText = elapsed.TotalHours >= 1
+                ? $"{(int)elapsed.TotalHours}时{elapsed.Minutes}分"
+                : $"{(int)elapsed.TotalMinutes} 分钟";
+        }
+        else
+        {
+            tileDuration.ValueText = "--";
+        }
 
         // 倒计时与进度条计算
-        bool running = controller.Session.IsRunning;
         string next = PlainLanguage.NextPulse(status);
         if (running && status.LastPulseAt is DateTimeOffset last)
         {
@@ -529,7 +609,6 @@ public sealed class MainForm : Form
         }
         lastKnownPulseCount = status.PulseCount;
 
-        windowLabel.Text = PlainLanguage.WindowInfo(status, controller.Session.IsOffscreen);
         resourceNote.Text = PlainLanguage.ResourceNote(status);
         resourceNote.Visible = resourceNote.Text.Length > 0;
         latestMessage.Text = AppMessages.Latest.Length > 0 ? "提示：" + AppMessages.Latest : "";
@@ -545,10 +624,11 @@ public sealed class MainForm : Form
         string rhythm = $"{string.Join("、", controller.Config.Input.Keys)} · 每 {controller.Config.Input.IntervalSeconds} 秒";
         mainButton.Text = running ? "停止挂机" : "开始挂机";
         mainButton.BackColor = running ? Palette.StatusFaulted : Palette.Accent;
-        mainButton.FlatAppearance.MouseOverBackColor = running ? Palette.StatusFaulted : Palette.AccentHover;
+        mainButton.HoverBackColor = running ? Palette.StatusFaulted : Palette.AccentHover;
+        mainButton.PressedBackColor = running ? Palette.StatusFaulted : Palette.AccentHover;
         mainSubtitle.Text = running
             ? $"正在自动调度按键（{rhythm}）"
-            : $"预设：{rhythm}（点「更多设置」可自定义）" + (status.Pid == null ? "；尚未检测到游戏" : "");
+            : $"预设：{rhythm}（点「更多设置」可自定义）" + (status.Pid == null ? "\n尚未检测到游戏" : "");
 
         bossKeyButton.Text = controller.Session.IsOffscreen ? "恢复游戏窗口" : "老板键";
 
@@ -612,24 +692,24 @@ public sealed class MainForm : Form
     static void ConfigureValueLabel(Label label, float size, Color color, bool bold = false)
     {
         label.AutoSize = true;
-        label.Font = new Font(bold ? "Segoe UI Semibold" : "Segoe UI", size);
+        label.Font = new Font("Microsoft YaHei UI", size, bold ? FontStyle.Bold : FontStyle.Regular);
         label.ForeColor = color;
         label.Dock = DockStyle.Fill;
-        label.Margin = new Padding(0, 0, 0, 5);
+        label.Margin = new Padding(0, 0, 0, 4);
     }
 
-    static void StyleModernButton(Button button, int width)
+    static void StyleModernButton(RoundedButton button, int width)
     {
-        button.Size = new Size(width, 34);
+        button.Size = new Size(width, 36);
         button.Margin = new Padding(0, 0, 8, 0);
-        button.FlatStyle = FlatStyle.Flat;
+        button.CornerRadius = 6;
+        button.BorderSize = 1;
+        button.BorderColor = Palette.Border;
         button.BackColor = Palette.Panel;
         button.ForeColor = Palette.Ink;
-        button.Font = new Font("Segoe UI", 9f);
-        button.FlatAppearance.BorderColor = Palette.Border;
-        button.FlatAppearance.MouseOverBackColor = Palette.SurfaceSubtle;
-        button.FlatAppearance.MouseDownBackColor = Palette.AccentWash;
-        button.Cursor = Cursors.Hand;
+        button.Font = new Font("Microsoft YaHei UI", 9f);
+        button.HoverBackColor = Palette.SurfaceSubtle;
+        button.PressedBackColor = Palette.AccentWash;
     }
 
     static void DrawRoundedRectangle(Graphics g, Pen pen, Rectangle bounds, int radius)

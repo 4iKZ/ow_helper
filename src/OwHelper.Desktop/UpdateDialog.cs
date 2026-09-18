@@ -17,9 +17,9 @@ public sealed class UpdateDialog : Form
 
     readonly ProgressBar progressBar = new ProgressBar();
     readonly Label statusLabel = new Label();
-    readonly Button btnUpdate = new Button();
-    readonly Button btnBrowser = new Button();
-    readonly Button btnCancel = new Button();
+    readonly RoundedButton btnUpdate = new RoundedButton();
+    readonly RoundedButton btnBrowser = new RoundedButton();
+    readonly RoundedButton btnCancel = new RoundedButton();
 
     CancellationTokenSource? cts;
     bool isDownloading;
@@ -33,7 +33,7 @@ public sealed class UpdateDialog : Form
         Text = "发现新版本 - OW 助手";
         BackColor = Palette.Paper;
         ForeColor = Palette.Ink;
-        Font = new Font("Segoe UI", 9f);
+        Font = new Font("Microsoft YaHei UI", 9f);
         ClientSize = new Size(540, 480);
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
@@ -82,7 +82,7 @@ public sealed class UpdateDialog : Form
         var titleLabel = new Label
         {
             Text = "✨ OW 助手有新版本可用！",
-            Font = new Font("Segoe UI Semibold", 13f),
+            Font = new Font("Microsoft YaHei UI", 13f, FontStyle.Bold),
             ForeColor = Palette.Ink,
             AutoSize = true,
             Margin = new Padding(0, 0, 0, 4),
@@ -91,7 +91,7 @@ public sealed class UpdateDialog : Form
         var versionLabel = new Label
         {
             Text = $"当前版本：v{currentVersion}    ➜    最新版本：v{info.Version}",
-            Font = new Font("Segoe UI Semibold", 10f),
+            Font = new Font("Microsoft YaHei UI", 10f, FontStyle.Bold),
             ForeColor = Palette.Accent,
             AutoSize = true,
             Margin = new Padding(0, 0, 0, 4),
@@ -100,7 +100,7 @@ public sealed class UpdateDialog : Form
         var metaLabel = new Label
         {
             Text = $"发布日期：{info.PublishedAt.ToLocalTime():yyyy-MM-dd HH:mm} · 文件大小：{FormatSize(info.SetupSizeBytes)}",
-            Font = new Font("Segoe UI", 8.5f),
+            Font = new Font("Microsoft YaHei UI", 8.5f),
             ForeColor = Palette.InkSecondary,
             AutoSize = true,
             Margin = new Padding(0, 0, 0, 4),
@@ -114,9 +114,9 @@ public sealed class UpdateDialog : Form
         var notesCard = new Panel
         {
             Dock = DockStyle.Fill,
-            BackColor = Palette.Panel,
+            BackColor = Palette.SurfaceSubtle,
             Padding = new Padding(12),
-            Margin = new Padding(0, 0, 0, 12),
+            Margin = new Padding(0),
         };
         notesCard.Paint += (s, e) =>
         {
@@ -130,7 +130,7 @@ public sealed class UpdateDialog : Form
             Dock = DockStyle.Fill,
             ColumnCount = 1,
             RowCount = 2,
-            BackColor = Color.Transparent,
+            BackColor = Palette.SurfaceSubtle,
         };
         notesLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         notesLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
@@ -138,7 +138,7 @@ public sealed class UpdateDialog : Form
         var notesHeader = new Label
         {
             Text = "更新日志：",
-            Font = new Font("Segoe UI Semibold", 9f),
+            Font = new Font("Microsoft YaHei UI", 9f, FontStyle.Bold),
             ForeColor = Palette.Ink,
             AutoSize = true,
             Dock = DockStyle.Top,
@@ -154,7 +154,7 @@ public sealed class UpdateDialog : Form
             BackColor = Palette.SurfaceSubtle,
             ForeColor = Palette.Ink,
             BorderStyle = BorderStyle.None,
-            Font = new Font("Segoe UI", 9f),
+            Font = new Font("Microsoft YaHei UI", 9f),
             Text = string.IsNullOrWhiteSpace(info.ReleaseNotes) ? "该版本暂无详细更新日志。" : info.ReleaseNotes.Replace("\r\n", "\n").Replace("\n", "\r\n"),
         };
 
@@ -180,7 +180,7 @@ public sealed class UpdateDialog : Form
         progressBar.Margin = new Padding(0, 0, 0, 4);
 
         statusLabel.AutoSize = true;
-        statusLabel.Font = new Font("Segoe UI", 8.5f);
+        statusLabel.Font = new Font("Microsoft YaHei UI", 8.5f);
         statusLabel.ForeColor = Palette.InkSecondary;
         statusLabel.Text = "";
         statusLabel.Visible = false;
@@ -202,13 +202,13 @@ public sealed class UpdateDialog : Form
 
         btnUpdate.Text = "立即更新并重启";
         btnUpdate.Size = new Size(130, 36);
-        btnUpdate.FlatStyle = FlatStyle.Flat;
+        btnUpdate.CornerRadius = 6;
+        btnUpdate.BorderSize = 0;
         btnUpdate.BackColor = Palette.Accent;
         btnUpdate.ForeColor = Color.White;
-        btnUpdate.Font = new Font("Segoe UI Semibold", 9f);
-        btnUpdate.FlatAppearance.BorderColor = Palette.Accent;
-        btnUpdate.FlatAppearance.MouseOverBackColor = Palette.AccentHover;
-        btnUpdate.Cursor = Cursors.Hand;
+        btnUpdate.Font = new Font("Microsoft YaHei UI", 9f, FontStyle.Bold);
+        btnUpdate.HoverBackColor = Palette.AccentHover;
+        btnUpdate.PressedBackColor = Palette.AccentHover;
         btnUpdate.Margin = new Padding(8, 0, 0, 0);
         btnUpdate.Click += async (s, e) => await StartUpdateAsync();
 
@@ -360,18 +360,18 @@ public sealed class UpdateDialog : Form
         return $"{(double)bytes / 1024:F1} KB";
     }
 
-    static void StyleSecondaryButton(Button button, int width)
+    static void StyleSecondaryButton(RoundedButton button, int width)
     {
         button.Size = new Size(width, 36);
         button.Margin = new Padding(8, 0, 0, 0);
-        button.FlatStyle = FlatStyle.Flat;
+        button.CornerRadius = 6;
+        button.BorderSize = 1;
+        button.BorderColor = Palette.Border;
         button.BackColor = Palette.Panel;
         button.ForeColor = Palette.Ink;
-        button.Font = new Font("Segoe UI", 9f);
-        button.FlatAppearance.BorderColor = Palette.Border;
-        button.FlatAppearance.MouseOverBackColor = Palette.SurfaceSubtle;
-        button.FlatAppearance.MouseDownBackColor = Palette.AccentWash;
-        button.Cursor = Cursors.Hand;
+        button.Font = new Font("Microsoft YaHei UI", 9f);
+        button.HoverBackColor = Palette.SurfaceSubtle;
+        button.PressedBackColor = Palette.AccentWash;
     }
 
     static void DrawRoundedRectangle(Graphics g, Pen pen, Rectangle bounds, int radius)

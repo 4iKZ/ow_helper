@@ -101,7 +101,7 @@ public sealed class SettingsForm : Form
         Text = "OW 助手 · 更多设置";
         BackColor = Palette.Paper;
         ForeColor = Palette.Ink;
-        Font = new Font("Segoe UI", 9f);
+        Font = new Font("Microsoft YaHei UI", 9f);
         ClientSize = new Size(620, 720);
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
@@ -148,7 +148,7 @@ public sealed class SettingsForm : Form
         {
             Text = "✓ 设置保存后立即生效；正在挂机时，下一次自动按键就会采用新设置。",
             ForeColor = Palette.InkSecondary,
-            Font = new Font("Segoe UI", 8.5f),
+            Font = new Font("Microsoft YaHei UI", 8.5f),
             AutoSize = true,
             Margin = new Padding(4, 4, 0, 8),
         }, 0, 5);
@@ -207,7 +207,7 @@ public sealed class SettingsForm : Form
         {
             Text = "自定义按键（英文逗号隔开，例如 mouseleft、f1、up）：",
             ForeColor = Palette.InkSecondary,
-            Font = new Font("Segoe UI", 8.5f),
+            Font = new Font("Microsoft YaHei UI", 8.5f),
             AutoSize = true,
             Margin = new Padding(0, 4, 0, 4),
         };
@@ -305,7 +305,7 @@ public sealed class SettingsForm : Form
         {
             Text = $"当前版本：v{currentVer}",
             ForeColor = Palette.InkSecondary,
-            Font = new Font("Segoe UI", 9f),
+            Font = new Font("Microsoft YaHei UI", 9f),
             AutoSize = true,
             Margin = new Padding(0, 2, 0, 6),
         };
@@ -443,7 +443,7 @@ public sealed class SettingsForm : Form
         var titleLabel = new Label
         {
             Text = title,
-            Font = new Font("Segoe UI Semibold", 10f),
+            Font = new Font("Microsoft YaHei UI", 10f, FontStyle.Bold),
             ForeColor = Palette.Accent,
             AutoSize = true,
             Margin = new Padding(0, 0, 0, 10),
@@ -508,32 +508,28 @@ public sealed class SettingsForm : Form
     {
         Text = text,
         ForeColor = Palette.Ink,
-        Font = new Font("Segoe UI", 9f),
+        Font = new Font("Microsoft YaHei UI", 9f),
         AutoSize = true,
         Dock = DockStyle.Top,
         Margin = new Padding(0, 4, 0, 4),
     };
 
-    static Button ActionButton(string text, bool primary) => new Button
+    static RoundedButton ActionButton(string text, bool primary) => new RoundedButton
     {
         Text = text,
+        CornerRadius = 6,
+        BorderSize = primary ? 0 : 1,
+        BorderColor = Palette.Border,
         AutoSize = true,
         AutoSizeMode = AutoSizeMode.GrowAndShrink,
         MinimumSize = new Size(110, 36),
         Padding = new Padding(16, 0, 16, 0),
-        FlatStyle = FlatStyle.Flat,
         BackColor = primary ? Palette.Accent : Palette.Panel,
         ForeColor = primary ? Color.White : Palette.Ink,
-        Font = new Font("Segoe UI Semibold", 9f),
+        Font = new Font("Microsoft YaHei UI", 9f, FontStyle.Bold),
         Margin = new Padding(0, 0, 10, 0),
-        Cursor = Cursors.Hand,
-        FlatAppearance =
-        {
-            BorderSize = primary ? 0 : 1,
-            BorderColor = Palette.Border,
-            MouseOverBackColor = primary ? Palette.AccentHover : Palette.SurfaceSubtle,
-            MouseDownBackColor = primary ? Palette.AccentHover : Palette.AccentWash,
-        },
+        HoverBackColor = primary ? Palette.AccentHover : Palette.SurfaceSubtle,
+        PressedBackColor = primary ? Palette.AccentHover : Palette.AccentWash,
     };
 
     static TableLayoutPanel Pair(string caption, Control control)
@@ -557,7 +553,7 @@ public sealed class SettingsForm : Form
         {
             Text = caption,
             ForeColor = Palette.InkSecondary,
-            Font = new Font("Segoe UI", 9f),
+            Font = new Font("Microsoft YaHei UI", 9f),
             AutoSize = true,
             Dock = DockStyle.Fill,
             TextAlign = ContentAlignment.MiddleLeft,
