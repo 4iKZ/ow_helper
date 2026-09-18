@@ -9,7 +9,7 @@
   #define AppVersion "0.0.0"
 #endif
 #ifndef SourceDir
-  #define SourceDir SourcePath + "\\..\\artifacts\\OwHelper-win-x64"
+  #define SourceDir SourcePath + "\\..\\artifacts\\OwHelper-installer-source"
 #endif
 #define MyAppName "OW 助手"
 #define MyAppExe "OwHelper.Desktop.exe"
@@ -52,7 +52,7 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 [Files]
 ; 只发桌面版（含共享依赖）；控制台与诊断工具留在 zip 包里给折腾党。
 ; 调试符号不进安装包。
-Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs; Excludes: "*.pdb,OwHelper.exe,BgKeyProbe.exe"
+Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs; Excludes: "*.pdb"
 Source: "{#SourcePath}\owhelper.install.marker"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]

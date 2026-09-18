@@ -51,6 +51,26 @@ jobs:
         shell: pwsh
         run: choco install innosetup -y --no-progress
 
+      - name: Publish installer source
+        shell: pwsh
+        run: ./scripts/publish-installer.ps1
+
+      - name: Verify installer source purity
+        shell: pwsh
+        run: |
+          $forbidden = @(
+            'BgKeyProbe.exe', 'BgKeyProbe.dll', 'BgKeyProbe.deps.json', 'BgKeyProbe.runtimeconfig.json',
+            'OwHelper.exe', 'OwHelper.deps.json', 'OwHelper.runtimeconfig.json'
+          )
+          foreach ($f in $forbidden) {
+            if (Test-Path "artifacts/OwHelper-installer-source/$f") {
+              throw "Installer source contains forbidden artifact: $f"
+            }
+          }
+          if (-not (Test-Path "artifacts/OwHelper-installer-source/OwHelper.Desktop.exe")) {
+            throw "Installer source missing OwHelper.Desktop.exe"
+          }
+
       - name: Build installer
         shell: pwsh
         run: |
