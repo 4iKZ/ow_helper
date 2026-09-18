@@ -28,7 +28,7 @@ public sealed class MainForm : Form
     {
         this.controller = controller;
 
-        Text = "OW 助手";
+        Text = "OW 助手 v" + System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString(3);
         BackColor = Palette.Paper;
         ForeColor = Palette.Ink;
         AutoScaleMode = AutoScaleMode.None;

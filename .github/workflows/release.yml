@@ -1,0 +1,54 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  release:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore ow_helper.sln
+
+      - name: Build
+        run: dotnet build ow_helper.sln -c Release --no-restore
+
+      - name: Test
+        run: dotnet test ow_helper.sln -c Release --no-build
+
+      - name: Publish framework-dependent
+        shell: pwsh
+        run: ./scripts/publish.ps1 -Output artifacts/OwHelper-win-x64-framework-dependent
+
+      - name: Publish self-contained
+        shell: pwsh
+        run: ./scripts/publish.ps1 -Output artifacts/OwHelper-win-x64 -SelfContained
+
+      - name: Package and release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $version = '${{ github.ref_name }}'
+          New-Item -ItemType Directory -Path artifacts/packages -Force | Out-Null
+          foreach ($dir in 'artifacts/OwHelper-win-x64', 'artifacts/OwHelper-win-x64-framework-dependent') {
+            Copy-Item README.md "$dir/README.txt"
+            Copy-Item LICENSE "$dir/LICENSE.txt"
+            $zip = "artifacts/packages/$((Split-Path $dir -Leaf))-$version.zip"
+            Compress-Archive -Path "$dir/*" -DestinationPath $zip
+          }
+          Get-ChildItem artifacts/packages/*.zip | ForEach-Object {
+            '{0}  {1}' -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash, $_.Name
+          } | Out-File artifacts/packages/SHA256SUMS.txt -Encoding ascii
+          gh release create $version artifacts/packages/*.zip artifacts/packages/SHA256SUMS.txt `
+            --title $version `
+            --notes "OW 助手 $version：后台自动按键 + 老板键 + 设置界面。推荐下载 self-contained 包（免装 .NET）；高级用户可用 framework-dependent 包（需 .NET 8 Desktop Runtime）。详见包内 README.txt。"

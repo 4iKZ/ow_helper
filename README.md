@@ -10,10 +10,17 @@
 - **它不做什么**：不注入游戏、不读写游戏内存、不装驱动、不做任何反作弊绕过——只发常规 Windows 窗口消息（详见[安全边界](#安全边界与平台条款)）。
 - **会打扰我自己玩吗**：不会。默认在游戏窗口回到前台时自动跳过按键。
 
+## 下载
+
+在 [GitHub Releases](https://github.com/4iKZ/ow_helper/releases) 下载最新版，解压即用：
+
+- **推荐**：`OwHelper-win-x64-<版本>.zip`（自包含，不用装 .NET）
+- 高级用户：`OwHelper-win-x64-framework-dependent-<版本>.zip`（体积小，但要先装 [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0)）
+
 ## 快速开始（四步）
 
 1. **打开《守望先锋 2》**，进入你想挂的房间或训练场
-2. 运行 **`OwHelper.Desktop.exe`**（发布包在 `artifacts\OwHelper-win-x64\`，也可以按下文自行构建），会打开一个大窗口
+2. 运行 **`OwHelper.Desktop.exe`**（刚下载的包里就有；自己构建见[给折腾党](#给折腾党技术细节)），会打开一个大窗口
 3. 点**「开始挂机」**
 4. 正常用电脑就行。想自己玩时，再点一次同一按钮停止；想立刻"眼不见心不烦"，点「老板键」
 
@@ -82,4 +89,4 @@ Windows 11 x64 · .NET 8 Desktop Runtime · Overwatch 2（建议窗口模式）
 
 ## License
 
-尚未选定，见 [LICENSE-TODO.md](LICENSE-TODO.md)。
+MIT，见 [LICENSE](LICENSE)。
