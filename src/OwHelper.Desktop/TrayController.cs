@@ -10,36 +10,33 @@ public sealed class TrayController
 {
     readonly Session session;
     readonly AppLog log;
-    readonly AppConfig config;
 
     public TrayController(Session session, AppLog log, AppConfig config)
     {
         this.session = session;
         this.log = log;
-        this.config = config;
+        Config = config;
     }
 
     public Session Session => session;
 
-    public AppConfig Config => config;
+    public AppConfig Config { get; private set; }
 
     public async Task<string> ApplySettingsAsync(AppConfig updated)
     {
-        session.ApplyConfig(updated);
         updated.Save(AppConfig.DefaultPath);
+        Config = updated;
         log.Write(new LogEntry(
             DateTimeOffset.Now,
             LogLevel.Information,
             "CONFIG_APPLIED",
             Message: $"keys={string.Join(",", updated.Input.Keys)}; interval={updated.Input.IntervalSeconds}"));
 
-        if (!session.IsRunning) return "设置已保存。按键与时序将在下次「开始」生效。";
-
-        ResourceApplyResult? applied = await session.ReapplyPolicyAsync();
-        if (applied == null) return "设置已保存。按键与时序将在下次「开始」生效。";
+        ResourceApplyResult? applied = await session.ApplyConfigAsync(updated);
+        if (applied == null) return "设置已保存并立即生效。";
 
         string policy = $"{applied.Priority.Name}={(applied.Priority.Success ? "ok" : applied.Priority.Message)}; {applied.Power.Name}={(applied.Power.Success ? "ok" : applied.Power.Message)}";
-        return $"设置已保存；资源策略已重新应用（{policy}）。按键与时序将在下次「开始」生效。";
+        return $"设置已保存并立即生效；资源策略已重新应用（{policy}）。";
     }
 
     public TrayStatus Snapshot()

@@ -104,6 +104,9 @@ public sealed class AppConfig
         File.WriteAllText(path, JsonSerializer.Serialize(this, Options));
     }
 
+    public AppConfig Clone()
+        => JsonSerializer.Deserialize<AppConfig>(JsonSerializer.Serialize(this, Options), Options) ?? new AppConfig();
+
     public ResourcePolicy BuildPolicy()
     {
         ProcessPriorityClass priority = ProcessPriorityClass.BelowNormal;

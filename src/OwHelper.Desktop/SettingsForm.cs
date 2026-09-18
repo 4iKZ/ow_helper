@@ -90,7 +90,7 @@ public sealed class SettingsForm : Form
     public SettingsForm(TrayController controller)
     {
         this.controller = controller;
-        config = controller.Config;
+        config = controller.Config.Clone();
 
         Text = "OW 助手 · 更多设置";
         BackColor = Palette.Paper;
@@ -132,7 +132,7 @@ public sealed class SettingsForm : Form
         AddRow(layout, Pair("保留天数", retainDays));
         AddRow(layout, new Label
         {
-            Text = "保存后：节奏和后台选项立即生效；按键的变化会在下次「开始」时生效。",
+            Text = "保存后立即生效；正在挂机时，下一次自动按键就会用新设置。",
             ForeColor = Palette.InkSecondary,
             AutoSize = true,
             Margin = new Padding(0, 6, 0, 0),
@@ -205,7 +205,16 @@ public sealed class SettingsForm : Form
         config.Logging.RetainDays = (int)retainDays.Value;
 
         List<string> problems = config.Validate();
-        string summary = await controller.ApplySettingsAsync(config);
+        string summary;
+        try
+        {
+            summary = await controller.ApplySettingsAsync(config);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, "保存失败，设置未生效：" + ex.Message, "OW 助手 · 更多设置", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            return;
+        }
         string message = problems.Count == 0
             ? summary
             : string.Join(Environment.NewLine, problems) + Environment.NewLine + Environment.NewLine + summary;

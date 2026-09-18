@@ -94,22 +94,31 @@ public sealed class Session : IAsyncDisposable
         KeepOffscreenAcrossRestart = config.Window.KeepOffscreenAcrossRestart;
     }
 
-    public async Task<ResourceApplyResult?> ReapplyPolicyAsync()
+    public async Task<ResourceApplyResult?> ApplyConfigAsync(AppConfig config)
     {
         await gate.WaitAsync();
         try
         {
-            if (!IsRunning || governor == null) return null;
-            ResourceApplyResult applied = governor.Apply(Policy);
-            LastResourceApplyPartial = !applied.Success;
-            LogResourceApply(applied);
-            if (LastResourceApplyPartial)
-            {
-                Notify(new SessionNotice(SessionNoticeKind.ResourcePartialFailure));
-            }
+            ApplyConfig(config);
+            if (!IsRunning) return null;
+            ResourceApplyResult? applied = ReapplyPolicyLocked();
+            wakeCts?.Cancel();
             return applied;
         }
         finally { gate.Release(); }
+    }
+
+    ResourceApplyResult? ReapplyPolicyLocked()
+    {
+        if (governor == null) return null;
+        ResourceApplyResult applied = governor.Apply(Policy);
+        LastResourceApplyPartial = !applied.Success;
+        LogResourceApply(applied);
+        if (LastResourceApplyPartial)
+        {
+            Notify(new SessionNotice(SessionNoticeKind.ResourcePartialFailure));
+        }
+        return applied;
     }
 
     void Notify(SessionNotice notice)
@@ -289,7 +298,9 @@ public sealed class Session : IAsyncDisposable
                 }
                 continue;
             }
-            if (current.IsForeground && SkipWhenForeground)
+            PulseRecipe recipeNow = recipe;
+            bool skipNow = SkipWhenForeground;
+            if (current.IsForeground && skipNow)
             {
                 output($"  [{DateTime.Now:HH:mm:ss}] OW 在前台，本次跳过");
                 Log(LogLevel.Information, "PULSE_SKIPPED_FOREGROUND", pid: (int)current.Pid, hwnd: current.Handle, pulseIndex: pulseCount + 1);
@@ -297,7 +308,7 @@ public sealed class Session : IAsyncDisposable
             else
             {
                 long started = Environment.TickCount64;
-                PulseResult result = pulseSender.Execute(current.Handle, recipe);
+                PulseResult result = pulseSender.Execute(current.Handle, recipeNow);
                 long elapsed = Environment.TickCount64 - started;
                 pulseCount++;
                 LastPulseAt = DateTimeOffset.Now;
@@ -320,23 +331,38 @@ public sealed class Session : IAsyncDisposable
                 }
                 output($"  [{DateTime.Now:HH:mm:ss}] 第 {pulseCount} 次脉冲完成");
             }
-            try
-            {
-                wakeCts = new CancellationTokenSource();
-                using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, wakeCts.Token);
-                await Task.Delay(NextWaitMs(), linked.Token);
-            }
-            catch (TaskCanceledException)
-            {
-                if (ct.IsCancellationRequested) break;
-            }
+            if (!await WaitForNextPulseAsync(ct)) break;
         }
         await FinishAsync();
     }
 
-    int NextWaitMs()
+    async Task<bool> WaitForNextPulseAsync(CancellationToken ct)
     {
-        double next = IntervalSec * (1.0 + (rng.NextDouble() * 2 - 1) * (JitterPercent / 100.0));
+        while (true)
+        {
+            if (ct.IsCancellationRequested) return false;
+            if (reattachRequested) return true;
+            int interval = IntervalSec;
+            int jitter = JitterPercent;
+            wakeCts?.Dispose();
+            using var wake = new CancellationTokenSource();
+            wakeCts = wake;
+            using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, wake.Token);
+            try
+            {
+                await Task.Delay(NextWaitMs(interval, jitter), linked.Token);
+                return true;
+            }
+            catch (TaskCanceledException)
+            {
+                // 被停止 / 重连 / 配置热应用打断：停止与重连交给外层，配置变更则按新设置重新计时
+            }
+        }
+    }
+
+    int NextWaitMs(int interval, int jitter)
+    {
+        double next = interval * (1.0 + (rng.NextDouble() * 2 - 1) * (jitter / 100.0));
         return Math.Max(1000, (int)(next * 1000));
     }
 

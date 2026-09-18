@@ -124,6 +124,25 @@ public class AppConfigTests
     }
 
     [Fact]
+    public void Clone_DeepCopiesEveryField()
+    {
+        var config = new AppConfig();
+        config.Input.Keys = new List<string> { "e", "mouseleft" };
+        config.Input.IntervalSeconds = 45;
+        config.Resource.Priority = "AboveNormal";
+        config.Target.ProcessName = "Notepad";
+
+        AppConfig clone = config.Clone();
+
+        Assert.Equal(new[] { "e", "mouseleft" }, clone.Input.Keys);
+        Assert.Equal(45, clone.Input.IntervalSeconds);
+        Assert.Equal("AboveNormal", clone.Resource.Priority);
+        Assert.Equal("Notepad", clone.Target.ProcessName);
+        clone.Input.Keys.Add("shift");
+        Assert.DoesNotContain("shift", config.Input.Keys);
+    }
+
+    [Fact]
     public void GpuGuide_DisabledByPolicyMode()
     {
         var config = new AppConfig();

@@ -21,10 +21,12 @@ public class SessionLifecycleTests
     {
         public int Calls;
         public bool Fail;
+        public PulseRecipe? LastRecipe;
 
         public PulseResult Execute(IntPtr hwnd, PulseRecipe recipe)
         {
             Calls++;
+            LastRecipe = recipe;
             bool ok = !Fail;
             return new PulseResult
             {
@@ -317,6 +319,47 @@ public class SessionLifecycleTests
 
         Assert.Equal(1, h.Placement.MoveCalls);
         Assert.True(h.Placement.TaskbarHidden);
+    }
+
+    [Fact]
+    public async Task S15_HotApply_RetimesWaitAndUsesNewKeys()
+    {
+        await using var h = new Harness();
+        h.Session.IntervalSec = 60;
+        await h.Session.AttachAsync();
+        await h.Session.StartAsync();
+        Assert.True(await WaitFor(() => h.Pulse.Calls >= 1, 5000), "第一次脉冲应立即发出");
+
+        var updated = new AppConfig();
+        updated.Input.Keys = new List<string> { "e" };
+        updated.Input.IntervalSeconds = 5;
+        await h.Session.ApplyConfigAsync(updated);
+
+        Assert.True(await WaitFor(() => h.Pulse.Calls >= 2, 12000), "间隔改为 5 秒后当前等待应重新计时");
+        Assert.Equal(KeyNames.Parse("e"), h.Pulse.LastRecipe!.Keys[0]);
+        Assert.Equal(5, h.Session.IntervalSec);
+    }
+
+    [Fact]
+    public async Task S16_HotApply_WhenIdle_OnlyUpdatesState()
+    {
+        var session = new Session(
+            new PulseRecipe { Keys = new[] { 0x10 } },
+            new FakeLocator(),
+            new FakePulseSender(),
+            _ => new FakeGovernor(),
+            new FakePlacement(),
+            _ => { });
+
+        var updated = new AppConfig();
+        updated.Input.IntervalSeconds = 45;
+        updated.Input.Keys = new List<string> { "e" };
+
+        ResourceApplyResult? applied = await session.ApplyConfigAsync(updated);
+
+        Assert.Null(applied);
+        Assert.Equal(45, session.IntervalSec);
+        Assert.Equal(KeyNames.Parse("e"), session.Recipe.Keys[0]);
     }
 
     [Fact]
