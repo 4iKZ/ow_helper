@@ -26,7 +26,15 @@ public static class PlainLanguage
         _ => "未开始",
     };
 
-    public static string PulseSummary(TrayStatus status) => $"已自动按键 {status.PulseCount} 次";
+    public static string PulseSummary(TrayStatus status)
+    {
+        string text = $"本次自动按键 {status.RunPulseCount} 次";
+        if (status.RunStartedAt is DateTimeOffset started)
+        {
+            text += $" · 已运行 {(int)(DateTimeOffset.Now - started).TotalMinutes} 分钟";
+        }
+        return text;
+    }
 
     public static string NextPulse(TrayStatus status)
     {

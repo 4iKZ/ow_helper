@@ -13,8 +13,10 @@ public class PlainLanguageTests
         int? pid = 1234,
         bool partial = false,
         DateTimeOffset? last = null,
-        bool minimized = false)
-        => new TrayStatus(state, alive, minimized, pid, 1920, 1080, 30, 12, last, partial);
+        bool minimized = false,
+        int runCount = 12,
+        DateTimeOffset? runStartedAt = null)
+        => new TrayStatus(state, alive, minimized, pid, 1920, 1080, 30, 12, last, partial, runCount, runStartedAt);
 
     static void AssertNoJargon(string text)
     {
@@ -65,11 +67,13 @@ public class PlainLanguageTests
     }
 
     [Fact]
-    public void PulseSummary_UsesPlainWords()
+    public void PulseSummary_ShowsRunCountAndDuration()
     {
-        string text = PlainLanguage.PulseSummary(Status(SessionState.Running));
+        string text = PlainLanguage.PulseSummary(
+            Status(SessionState.Running, runCount: 7, runStartedAt: DateTimeOffset.Now.AddMinutes(-5)));
 
-        Assert.Equal("已自动按键 12 次", text);
+        Assert.Contains("本次自动按键 7 次", text);
+        Assert.Contains("5 分钟", text);
         AssertNoJargon(text);
     }
 

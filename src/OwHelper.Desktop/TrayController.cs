@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
@@ -11,16 +12,29 @@ public sealed class TrayController
     readonly Session session;
     readonly AppLog log;
 
-    public TrayController(Session session, AppLog log, AppConfig config)
+    public TrayController(Session session, AppLog log, AppConfig config, IReadOnlyList<string> startupProblems)
     {
         this.session = session;
         this.log = log;
         Config = config;
+        StartupProblems = startupProblems;
+        GpuGuide = BuildGpuGuide(config, GpuEnvironment.Detect());
     }
 
     public Session Session => session;
 
     public AppConfig Config { get; private set; }
+
+    public IReadOnlyList<string> StartupProblems { get; }
+
+    public string? GpuGuide { get; }
+
+    internal static string? BuildGpuGuide(AppConfig config, IReadOnlyList<GpuInfo> gpus)
+    {
+        if (!config.GpuGuideEnabled) return null;
+        if (!GpuEnvironment.HasNvidia(gpus)) return null;
+        return $"GPU：建议在 NVIDIA 控制面板把「后台应用程序最大帧率」设为 {config.Resource.GpuBackgroundFpsTarget} FPS（需手动设置一次，本程序不会自动改驱动）";
+    }
 
     public async Task<string> ApplySettingsAsync(AppConfig updated)
     {
@@ -52,7 +66,9 @@ public sealed class TrayController
             session.IntervalSec,
             session.PulseCount,
             session.LastPulseAt,
-            session.LastResourceApplyPartial);
+            session.LastResourceApplyPartial,
+            session.RunPulseCount,
+            session.RunStartedAt);
     }
 
     public async Task AttachAsync(bool quiet = false)

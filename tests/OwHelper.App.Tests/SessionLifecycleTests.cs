@@ -441,6 +441,25 @@ public class SessionLifecycleTests
     }
 
     [Fact]
+    public async Task S20_RestartRun_ResetsRunCounter()
+    {
+        await using var h = new Harness();
+        await h.Session.AttachAsync();
+        await h.Session.StartAsync();
+        Assert.True(await WaitFor(() => h.Pulse.Calls >= 1, 5000));
+        Assert.True(h.Session.RunPulseCount >= 1);
+        Assert.NotNull(h.Session.RunStartedAt);
+
+        await h.Session.StopAsync();
+        await h.Session.StartAsync();
+
+        Assert.Equal(0, h.Session.RunPulseCount);
+        Assert.NotNull(h.Session.RunStartedAt);
+        Assert.True(await WaitFor(() => h.Pulse.Calls >= 2, 10000));
+        Assert.True(h.Session.RunPulseCount >= 1);
+    }
+
+    [Fact]
     public void S14_ApplyConfig_MapsEveryField()
     {
         var config = new AppConfig();

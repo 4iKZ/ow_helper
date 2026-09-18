@@ -67,6 +67,8 @@ public sealed class Session : IAsyncDisposable
     public GameWindow? Target => target;
     public PulseRecipe Recipe => recipe;
     public int PulseCount => pulseCount;
+    public int RunPulseCount { get; private set; }
+    public DateTimeOffset? RunStartedAt { get; private set; }
     public DateTimeOffset? LastPulseAt { get; private set; }
     public bool IsOffscreen => placement.IsOffscreen;
     public bool LastResourceApplyPartial { get; private set; }
@@ -169,6 +171,8 @@ public sealed class Session : IAsyncDisposable
             State = SessionState.Starting;
             Interlocked.Exchange(ref finished, 0);
             failureStreak = 0;
+            RunPulseCount = 0;
+            RunStartedAt = DateTimeOffset.Now;
             ResourceApplyResult applied = governor!.Apply(Policy);
             LastResourceApplyPartial = !applied.Success;
             if (LastResourceApplyPartial)
@@ -311,6 +315,7 @@ public sealed class Session : IAsyncDisposable
                 PulseResult result = pulseSender.Execute(current.Handle, recipeNow);
                 long elapsed = Environment.TickCount64 - started;
                 pulseCount++;
+                RunPulseCount++;
                 LastPulseAt = DateTimeOffset.Now;
                 if (result.AllSucceeded)
                 {

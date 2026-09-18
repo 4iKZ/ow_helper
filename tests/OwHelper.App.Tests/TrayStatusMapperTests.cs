@@ -14,7 +14,7 @@ public class TrayStatusMapperTests
         bool partial = false,
         int? pid = 1234,
         DateTimeOffset? last = null)
-        => new TrayStatus(state, alive, false, pid, 1920, 1080, 30, 12, last, partial);
+        => new TrayStatus(state, alive, false, pid, 1920, 1080, 30, 12, last, partial, 12, null);
 
     [Fact]
     public void StatusColor_RunningAlive_IsGreen()

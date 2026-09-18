@@ -160,6 +160,7 @@ public sealed class SettingsForm : Form
         Controls.Add(layout);
         Controls.Add(buttons);
         AcceptButton = save;
+        CancelButton = cancel;
 
         LoadFromConfig(config);
     }

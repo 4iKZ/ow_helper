@@ -16,6 +16,8 @@ public sealed class MainForm : Form
     readonly Label windowLabel = new Label();
     readonly Label resourceNote = new Label();
     readonly Label latestMessage = new Label();
+    readonly Label warningLabel = new Label();
+    readonly Label gpuLabel = new Label();
     readonly Button mainButton = new Button();
     readonly Label mainSubtitle = new Label();
     readonly Button bossKeyButton = new Button();
@@ -155,6 +157,10 @@ public sealed class MainForm : Form
         ConfigureValueLabel(windowLabel, 9.5f, Palette.InkSecondary);
         ConfigureValueLabel(resourceNote, 9.5f, Palette.StatusWaiting);
         ConfigureValueLabel(latestMessage, 9.5f, Palette.InkSecondary);
+        ConfigureValueLabel(warningLabel, 9.5f, Palette.StatusWaiting);
+        ConfigureValueLabel(gpuLabel, 9.5f, Palette.InkSecondary);
+        warningLabel.Cursor = Cursors.Hand;
+        warningLabel.Click += (s, e) => controller.OpenLogFolder();
 
         layout.Controls.Add(connectionRow, 0, 0);
         layout.Controls.Add(runLabel, 0, 1);
@@ -167,15 +173,19 @@ public sealed class MainForm : Form
             AutoSize = true,
             AutoSizeMode = AutoSizeMode.GrowAndShrink,
             ColumnCount = 1,
-            RowCount = 3,
+            RowCount = 5,
             BackColor = Palette.Panel,
         };
+        outer.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        outer.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         outer.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         outer.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         outer.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         outer.Controls.Add(layout, 0, 0);
         outer.Controls.Add(resourceNote, 0, 1);
         outer.Controls.Add(latestMessage, 0, 2);
+        outer.Controls.Add(warningLabel, 0, 3);
+        outer.Controls.Add(gpuLabel, 0, 4);
         card.Controls.Add(outer);
         return card;
     }
@@ -360,6 +370,12 @@ public sealed class MainForm : Form
         windowLabel.Text = PlainLanguage.WindowInfo(status, controller.Session.IsOffscreen);
         resourceNote.Text = PlainLanguage.ResourceNote(status);
         latestMessage.Text = AppMessages.Latest.Length > 0 ? "最近：" + AppMessages.Latest : "";
+        warningLabel.Text = controller.StartupProblems.Count == 0
+            ? ""
+            : $"⚠ 有 {controller.StartupProblems.Count} 项设置已自动修正（点我查看运行记录）";
+        warningLabel.Visible = warningLabel.Text.Length > 0;
+        gpuLabel.Text = controller.GpuGuide ?? "";
+        gpuLabel.Visible = gpuLabel.Text.Length > 0;
 
         bool running = controller.Session.IsRunning;
         string rhythm = $"{string.Join("、", controller.Config.Input.Keys)} · 每 {controller.Config.Input.IntervalSeconds} 秒";

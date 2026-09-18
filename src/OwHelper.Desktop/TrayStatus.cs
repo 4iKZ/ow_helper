@@ -13,4 +13,6 @@ public sealed record TrayStatus(
     int IntervalSec,
     int PulseCount,
     DateTimeOffset? LastPulseAt,
-    bool ResourcePartialFailure);
+    bool ResourcePartialFailure,
+    int RunPulseCount,
+    DateTimeOffset? RunStartedAt);

@@ -27,7 +27,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         AppStartupResult startup = AppStartup.Initialize("desktop", AppMessages.Write, ConfirmRecovery);
         log = startup.Log;
         AppConfig config = startup.Config;
-        controller = new TrayController(startup.Session, log, config);
+        controller = new TrayController(startup.Session, log, config, startup.Problems);
 
         statusItem = new ToolStripMenuItem("…") { Enabled = false };
         var openItem = new ToolStripMenuItem("打开主窗口", null, (s, e) => ShowMainWindow());
@@ -114,6 +114,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
         mainForm?.RefreshStatus();
         ShowPendingNotices();
+        ShowStartupProblemsOnce();
     }
 
     void ShowPendingNotices()
@@ -130,6 +131,18 @@ internal sealed class TrayApplicationContext : ApplicationContext
         if (text.Length > 250) text = text[..249] + "…";
         notifyIcon.BalloonTipTitle = "OW 助手";
         notifyIcon.BalloonTipText = text;
+        notifyIcon.ShowBalloonTip(5000);
+    }
+
+    bool startupProblemsHintShown;
+
+    void ShowStartupProblemsOnce()
+    {
+        if (startupProblemsHintShown) return;
+        startupProblemsHintShown = true;
+        if (controller.StartupProblems.Count == 0) return;
+        notifyIcon.BalloonTipTitle = "OW 助手";
+        notifyIcon.BalloonTipText = $"有 {controller.StartupProblems.Count} 项设置已自动修正，详情见运行记录。";
         notifyIcon.ShowBalloonTip(5000);
     }
 
