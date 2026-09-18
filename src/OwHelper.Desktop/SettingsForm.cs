@@ -91,6 +91,7 @@ public sealed class SettingsForm : Form
         new ComboItem("只记错误", "Error"),
     });
     readonly NumericUpDown retainDays = Numeric(1, 365);
+    readonly CheckBox autoCheckUpdate = Check("启动时自动检查新版本（推荐）");
 
     public SettingsForm(TrayController controller)
     {
@@ -121,11 +122,11 @@ public sealed class SettingsForm : Form
             Dock = DockStyle.Fill,
             Padding = new Padding(18, 14, 18, 10),
             ColumnCount = 1,
-            RowCount = 5,
+            RowCount = 6,
             AutoScroll = true,
             BackColor = Palette.Paper,
         };
-        for (int i = 0; i < 5; i++) root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        for (int i = 0; i < 6; i++) root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
         // 卡片 1：按键设定
         root.Controls.Add(BuildKeyCard(), 0, 0);
@@ -139,6 +140,9 @@ public sealed class SettingsForm : Form
         // 卡片 4：运行记录
         root.Controls.Add(BuildLoggingCard(), 0, 3);
 
+        // 卡片 5：版本与更新
+        root.Controls.Add(BuildUpdateCard(), 0, 4);
+
         // 底部提示
         root.Controls.Add(new Label
         {
@@ -147,7 +151,7 @@ public sealed class SettingsForm : Form
             Font = new Font("Segoe UI", 8.5f),
             AutoSize = true,
             Margin = new Padding(4, 4, 0, 8),
-        }, 0, 4);
+        }, 0, 5);
 
         // 底部按钮栏
         var save = ActionButton("保存并生效", primary: true);
@@ -281,6 +285,67 @@ public sealed class SettingsForm : Form
         return CreateGroupCard("运行记录与日志", content);
     }
 
+    Control BuildUpdateCard()
+    {
+        var content = new TableLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            ColumnCount = 1,
+            RowCount = 3,
+            BackColor = Palette.Panel,
+            Margin = new Padding(0),
+            Padding = new Padding(0),
+        };
+        for (int i = 0; i < 3; i++) content.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+        string currentVer = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.0.0";
+        var versionLabel = new Label
+        {
+            Text = $"当前版本：v{currentVer}",
+            ForeColor = Palette.InkSecondary,
+            Font = new Font("Segoe UI", 9f),
+            AutoSize = true,
+            Margin = new Padding(0, 2, 0, 6),
+        };
+
+        var checkBtn = ActionButton("立即检查更新…", primary: false);
+        checkBtn.Click += async (s, e) =>
+        {
+            checkBtn.Enabled = false;
+            checkBtn.Text = "正在检查…";
+            try
+            {
+                UpdateInfo? update = await controller.UpdateService.CheckForUpdatesAsync(currentVer);
+                if (update != null)
+                {
+                    using var dlg = new UpdateDialog(controller, update, currentVer);
+                    dlg.ShowDialog(this);
+                }
+                else
+                {
+                    MessageBox.Show(this, $"当前版本 v{currentVer} 已是最新版本！", "检查更新", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, $"检查更新失败: {ex.Message}\n请检查网络连接后重试。", "检查更新", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            finally
+            {
+                checkBtn.Enabled = true;
+                checkBtn.Text = "立即检查更新…";
+            }
+        };
+
+        content.Controls.Add(versionLabel, 0, 0);
+        content.Controls.Add(autoCheckUpdate, 0, 1);
+        content.Controls.Add(checkBtn, 0, 2);
+
+        return CreateGroupCard("版本与更新", content);
+    }
+
     void LoadFromConfig(AppConfig source)
     {
         ApplySelection(keyList, source.Input.Keys);
@@ -296,6 +361,7 @@ public sealed class SettingsForm : Form
         keepOffscreen.Checked = source.Window.KeepOffscreenAcrossRestart;
         SelectCombo(logLevel, source.Logging.Level, "Information");
         retainDays.Value = Clamp(source.Logging.RetainDays, retainDays);
+        autoCheckUpdate.Checked = source.Update.AutoCheckOnStartup;
     }
 
     async Task SaveAsync()
@@ -320,6 +386,7 @@ public sealed class SettingsForm : Form
         config.Window.KeepOffscreenAcrossRestart = keepOffscreen.Checked;
         config.Logging.Level = (logLevel.SelectedItem as ComboItem)?.Value ?? "Information";
         config.Logging.RetainDays = (int)retainDays.Value;
+        config.Update.AutoCheckOnStartup = autoCheckUpdate.Checked;
 
         List<string> problems = config.Validate();
         string summary;

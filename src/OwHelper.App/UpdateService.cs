@@ -1,0 +1,297 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace OwHelper;
+
+public sealed record UpdateInfo(
+    string Version,
+    string TagName,
+    string Title,
+    string ReleaseNotes,
+    string SetupDownloadUrl,
+    string ZipDownloadUrl,
+    long SetupSizeBytes,
+    DateTimeOffset PublishedAt,
+    string HtmlUrl);
+
+public readonly record struct DownloadProgressReport(
+    long BytesReceived,
+    long TotalBytes,
+    double Percent);
+
+public sealed class UpdateService
+{
+    public const string DefaultOwner = "4iKZ";
+    public const string DefaultRepo = "ow_helper";
+
+    readonly HttpClient httpClient;
+    readonly string owner;
+    readonly string repo;
+
+    public UpdateService(HttpClient? httpClient = null, string owner = DefaultOwner, string repo = DefaultRepo)
+    {
+        this.httpClient = httpClient ?? new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+        this.owner = owner;
+        this.repo = repo;
+    }
+
+    public static string StandardInstallDirectory => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "Programs",
+        "OW Helper");
+
+    public static string StandardExecutablePath => Path.Combine(StandardInstallDirectory, "OwHelper.Desktop.exe");
+
+    public static bool IsStandardInstalledPath(string? processPath = null)
+    {
+        string current = processPath ?? Environment.ProcessPath ?? "";
+        if (string.IsNullOrWhiteSpace(current)) return false;
+        string? currentDir = Path.GetDirectoryName(current);
+        if (string.IsNullOrWhiteSpace(currentDir)) return false;
+
+        string normalizedCurrent = Path.GetFullPath(currentDir).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        string normalizedStandard = Path.GetFullPath(StandardInstallDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+        return string.Equals(normalizedCurrent, normalizedStandard, StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static bool IsNewerVersion(string latestTagOrVersion, string currentVersion)
+    {
+        string cleanLatest = CleanVersionString(latestTagOrVersion);
+        string cleanCurrent = CleanVersionString(currentVersion);
+
+        if (Version.TryParse(cleanLatest, out Version? vLatest) && Version.TryParse(cleanCurrent, out Version? vCurrent))
+        {
+            return vLatest > vCurrent;
+        }
+
+        // 回退到分段整数对比
+        string[] latestParts = cleanLatest.Split('-', '+')[0].Split('.');
+        string[] currentParts = cleanCurrent.Split('-', '+')[0].Split('.');
+        int maxLen = Math.Max(latestParts.Length, currentParts.Length);
+
+        for (int i = 0; i < maxLen; i++)
+        {
+            int l = (i < latestParts.Length && int.TryParse(latestParts[i], out int lVal)) ? lVal : 0;
+            int c = (i < currentParts.Length && int.TryParse(currentParts[i], out int cVal)) ? cVal : 0;
+            if (l != c) return l > c;
+        }
+
+        return false;
+    }
+
+    public static string CleanVersionString(string version)
+    {
+        if (string.IsNullOrWhiteSpace(version)) return "0.0.0";
+        string trimmed = version.Trim();
+        if (trimmed.StartsWith('v') || trimmed.StartsWith('V'))
+        {
+            trimmed = trimmed.Substring(1);
+        }
+        return trimmed;
+    }
+
+    public async Task<UpdateInfo?> CheckForUpdatesAsync(string currentVersion, CancellationToken ct = default)
+    {
+        string url = $"https://api.github.com/repos/{owner}/{repo}/releases/latest";
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
+        request.Headers.UserAgent.Add(new ProductInfoHeaderValue("OwHelper-Desktop", CleanVersionString(currentVersion)));
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github.v3+json"));
+
+        using HttpResponseMessage response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+        {
+            return null;
+        }
+
+        string json = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        return ParseReleaseJson(json, currentVersion);
+    }
+
+    public static UpdateInfo? ParseReleaseJson(string json, string currentVersion)
+    {
+        using var doc = JsonDocument.Parse(json);
+        JsonElement root = doc.RootElement;
+
+        bool isDraft = root.TryGetProperty("draft", out JsonElement draftElem) && draftElem.GetBoolean();
+        bool isPrerelease = root.TryGetProperty("prerelease", out JsonElement prereleaseElem) && prereleaseElem.GetBoolean();
+        if (isDraft || isPrerelease)
+        {
+            return null;
+        }
+
+        string tagName = root.TryGetProperty("tag_name", out JsonElement tagElem) ? (tagElem.GetString() ?? "") : "";
+        string title = root.TryGetProperty("name", out JsonElement nameElem) ? (nameElem.GetString() ?? "") : tagName;
+        string body = root.TryGetProperty("body", out JsonElement bodyElem) ? (bodyElem.GetString() ?? "") : "";
+        string htmlUrl = root.TryGetProperty("html_url", out JsonElement htmlElem) ? (htmlElem.GetString() ?? "") : "";
+        DateTimeOffset publishedAt = root.TryGetProperty("published_at", out JsonElement pubElem) && pubElem.TryGetDateTimeOffset(out DateTimeOffset dt) ? dt : DateTimeOffset.Now;
+
+        string cleanVersion = CleanVersionString(tagName);
+        if (!IsNewerVersion(cleanVersion, currentVersion))
+        {
+            return null;
+        }
+
+        string setupUrl = "";
+        string zipUrl = "";
+        long setupSize = 0;
+
+        if (root.TryGetProperty("assets", out JsonElement assetsElem) && assetsElem.ValueKind == JsonValueKind.Array)
+        {
+            foreach (JsonElement asset in assetsElem.EnumerateArray())
+            {
+                string assetName = asset.TryGetProperty("name", out JsonElement aName) ? (aName.GetString() ?? "") : "";
+                string downloadUrl = asset.TryGetProperty("browser_download_url", out JsonElement aUrl) ? (aUrl.GetString() ?? "") : "";
+                long size = asset.TryGetProperty("size", out JsonElement aSize) ? aSize.GetInt64() : 0;
+
+                if (assetName.StartsWith("OwHelper-Setup", StringComparison.OrdinalIgnoreCase) &&
+                    assetName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                {
+                    setupUrl = downloadUrl;
+                    setupSize = size;
+                }
+                else if (assetName.StartsWith("OwHelper-win-x64", StringComparison.OrdinalIgnoreCase) &&
+                         !assetName.Contains("framework-dependent", StringComparison.OrdinalIgnoreCase) &&
+                         assetName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+                {
+                    zipUrl = downloadUrl;
+                }
+            }
+        }
+
+        return new UpdateInfo(
+            Version: cleanVersion,
+            TagName: tagName,
+            Title: string.IsNullOrWhiteSpace(title) ? tagName : title,
+            ReleaseNotes: body,
+            SetupDownloadUrl: setupUrl,
+            ZipDownloadUrl: zipUrl,
+            SetupSizeBytes: setupSize,
+            PublishedAt: publishedAt,
+            HtmlUrl: htmlUrl);
+    }
+
+    public async Task DownloadUpdateAsync(
+        UpdateInfo info,
+        string destinationPath,
+        IProgress<DownloadProgressReport>? progress = null,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(info.SetupDownloadUrl))
+        {
+            throw new InvalidOperationException("未找到最新安装包下载地址。");
+        }
+
+        string? dir = Path.GetDirectoryName(destinationPath);
+        if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+
+        string tempPath = destinationPath + ".downloading";
+
+        // 双通道容灾下载源
+        var urlsToTry = new List<string>
+        {
+            info.SetupDownloadUrl,
+            "https://ghproxy.net/" + info.SetupDownloadUrl,
+            "https://mirror.ghproxy.com/" + info.SetupDownloadUrl,
+        };
+
+        Exception? lastException = null;
+
+        foreach (string downloadUrl in urlsToTry)
+        {
+            ct.ThrowIfCancellationRequested();
+            try
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Get, downloadUrl);
+                using HttpResponseMessage response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
+                response.EnsureSuccessStatusCode();
+
+                long totalBytes = response.Content.Headers.ContentLength ?? info.SetupSizeBytes;
+                long bytesReceived = 0;
+
+                await using (Stream contentStream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false))
+                await using (FileStream fileStream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 65536, useAsync: true))
+                {
+                    byte[] buffer = new byte[65536];
+                    int read;
+                    while ((read = await contentStream.ReadAsync(buffer, 0, buffer.Length, ct).ConfigureAwait(false)) > 0)
+                    {
+                        await fileStream.WriteAsync(buffer, 0, read, ct).ConfigureAwait(false);
+                        bytesReceived += read;
+                        if (totalBytes > 0)
+                        {
+                            double pct = Math.Min(100.0, (double)bytesReceived / totalBytes * 100.0);
+                            progress?.Report(new DownloadProgressReport(bytesReceived, totalBytes, pct));
+                        }
+                    }
+                }
+
+                if (File.Exists(destinationPath)) File.Delete(destinationPath);
+                File.Move(tempPath, destinationPath, overwrite: true);
+                return; // 下载成功直接返回
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { }
+                throw;
+            }
+            catch (Exception ex)
+            {
+                lastException = ex;
+                try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { }
+                // 尝试下一个镜像源
+            }
+        }
+
+        throw new InvalidOperationException($"下载新版本安装包失败: {lastException?.Message}", lastException);
+    }
+
+    public static string CreateRestartScript(string installerPath, string? targetExePath = null)
+    {
+        targetExePath ??= StandardExecutablePath;
+        string scriptPath = Path.Combine(Path.GetTempPath(), "owhelper_update_restart.cmd");
+
+        string scriptContent = $@"@echo off
+timeout /t 1 /nobreak >nul
+""{installerPath}"" /SILENT /SUPPRESSMSGBOXES
+timeout /t 1 /nobreak >nul
+start """" ""{targetExePath}""
+del ""%~f0""
+";
+
+        File.WriteAllText(scriptPath, scriptContent);
+        return scriptPath;
+    }
+
+    public static void ExecuteInstallerAndExit(string installerPath, bool silent = true, Action? onBeforeExit = null)
+    {
+        if (silent)
+        {
+            string scriptPath = CreateRestartScript(installerPath);
+            var psi = new ProcessStartInfo("cmd.exe", $"/c \"{scriptPath}\"")
+            {
+                CreateNoWindow = true,
+                UseShellExecute = false,
+            };
+            Process.Start(psi);
+        }
+        else
+        {
+            var psi = new ProcessStartInfo(installerPath)
+            {
+                UseShellExecute = true,
+            };
+            Process.Start(psi);
+        }
+
+        onBeforeExit?.Invoke();
+        Environment.Exit(0);
+    }
+}

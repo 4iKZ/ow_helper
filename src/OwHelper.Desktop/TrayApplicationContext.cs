@@ -50,6 +50,35 @@ internal sealed class TrayApplicationContext : ApplicationContext
         var settingsItem = new ToolStripMenuItem("设置…", null, (s, e) => ShowSettings());
         var logsItem = new ToolStripMenuItem("打开运行记录", null, (s, e) => controller.OpenLogFolder());
         var configItem = new ToolStripMenuItem("打开设置文件", null, (s, e) => controller.OpenConfigFile());
+        var updateItem = new ToolStripMenuItem("检查更新…", null, async (s, e) =>
+        {
+            if (mainForm != null && !mainForm.IsDisposed)
+            {
+                ShowMainWindow();
+                await mainForm.TriggerCheckForUpdatesAsync(manual: true);
+            }
+            else
+            {
+                string currentVer = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.0.0";
+                try
+                {
+                    UpdateInfo? update = await controller.UpdateService.CheckForUpdatesAsync(currentVer);
+                    if (update != null)
+                    {
+                        using var dlg = new UpdateDialog(controller, update, currentVer);
+                        dlg.ShowDialog();
+                    }
+                    else
+                    {
+                        MessageBox.Show($"当前版本 v{currentVer} 已是最新版本！", "检查更新", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"检查更新失败: {ex.Message}\n请检查网络连接后重试。", "检查更新", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+            }
+        });
         var exitItem = new ToolStripMenuItem("退出（恢复游戏设置）", null, async (s, e) => await ExitAsync());
 
         menu = new ContextMenuStrip { Renderer = new PaperMenuRenderer(), BackColor = Palette.Panel };
@@ -66,6 +95,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             settingsItem,
             logsItem,
             configItem,
+            updateItem,
             new ToolStripSeparator(),
             exitItem,
         });

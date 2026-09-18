@@ -18,6 +18,7 @@ public sealed class AppConfig
     public ResourceSection Resource { get; set; } = new ResourceSection();
     public WindowSection Window { get; set; } = new WindowSection();
     public LoggingSection Logging { get; set; } = new LoggingSection();
+    public UpdateSection Update { get; set; } = new UpdateSection();
 
     public sealed class TargetSection
     {
@@ -55,6 +56,11 @@ public sealed class AppConfig
     {
         public string Level { get; set; } = "Information";
         public int RetainDays { get; set; } = 7;
+    }
+
+    public sealed class UpdateSection
+    {
+        public bool AutoCheckOnStartup { get; set; } = true;
     }
 
     static readonly JsonSerializerOptions Options = new JsonSerializerOptions

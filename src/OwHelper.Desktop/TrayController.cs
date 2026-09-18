@@ -29,6 +29,8 @@ public sealed class TrayController
 
     public string? GpuGuide { get; }
 
+    public UpdateService UpdateService { get; } = new UpdateService();
+
     internal static string? BuildGpuGuide(AppConfig config, IReadOnlyList<GpuInfo> gpus)
     {
         if (!config.GpuGuideEnabled) return null;

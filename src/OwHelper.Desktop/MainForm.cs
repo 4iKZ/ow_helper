@@ -17,6 +17,8 @@ public sealed class MainForm : Form
     readonly Label connectionDot = new Label();
     readonly Label connectionLabel = new Label();
     readonly Panel connectionBadge = new Panel();
+    readonly Label versionBadge = new Label();
+    UpdateInfo? cachedUpdateInfo;
 
     // 左卡片：调度与主操作
     readonly Button mainButton = new Button();
@@ -100,6 +102,15 @@ public sealed class MainForm : Form
         };
 
         RefreshStatus();
+
+        if (controller.Config.Update.AutoCheckOnStartup)
+        {
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(2000);
+                await CheckForUpdatesAsync(manual: false);
+            });
+        }
     }
 
     Control BuildHeader()
@@ -137,16 +148,18 @@ public sealed class MainForm : Form
             Margin = new Padding(0, 0, 8, 0),
         };
 
-        var versionBadge = new Label
-        {
-            Text = "v" + System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString(3),
-            Font = new Font("Segoe UI", 8.5f),
-            ForeColor = Palette.InkSecondary,
-            BackColor = Palette.Border,
-            Padding = new Padding(4, 2, 4, 2),
-            AutoSize = true,
-            Margin = new Padding(0, 6, 0, 0),
-        };
+        string currentVer = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.0.0";
+        versionBadge.Text = "v" + currentVer;
+        versionBadge.Font = new Font("Segoe UI", 8.5f);
+        versionBadge.ForeColor = Palette.InkSecondary;
+        versionBadge.BackColor = Palette.Border;
+        versionBadge.Padding = new Padding(4, 2, 4, 2);
+        versionBadge.AutoSize = true;
+        versionBadge.Margin = new Padding(0, 6, 0, 0);
+        versionBadge.Cursor = Cursors.Hand;
+        var tt = new ToolTip();
+        tt.SetToolTip(versionBadge, "点击检查新版本");
+        versionBadge.Click += async (s, e) => await CheckForUpdatesAsync(manual: true);
 
         titleBox.Controls.Add(titleLabel);
         titleBox.Controls.Add(versionBadge);
@@ -643,5 +656,77 @@ public sealed class MainForm : Form
         }
 
         g.DrawPath(pen, path);
+    }
+
+    public Task TriggerCheckForUpdatesAsync(bool manual = true)
+        => CheckForUpdatesAsync(manual);
+
+    async Task CheckForUpdatesAsync(bool manual)
+    {
+        string currentVer = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.0.0";
+        try
+        {
+            if (manual && cachedUpdateInfo == null)
+            {
+                SafeInvoke(() => versionBadge.Text = "正在检查更新…");
+            }
+
+            UpdateInfo? update = cachedUpdateInfo ?? await controller.UpdateService.CheckForUpdatesAsync(currentVer);
+            if (IsDisposed) return;
+
+            if (update != null)
+            {
+                cachedUpdateInfo = update;
+                SafeInvoke(() =>
+                {
+                    versionBadge.Text = $"✨ 发现新版 v{update.Version} (点击更新)";
+                    versionBadge.BackColor = Palette.AccentWash;
+                    versionBadge.ForeColor = Palette.Accent;
+                    if (manual)
+                    {
+                        using var dialog = new UpdateDialog(controller, update, currentVer);
+                        dialog.ShowDialog(this);
+                    }
+                });
+            }
+            else
+            {
+                SafeInvoke(() =>
+                {
+                    versionBadge.Text = "v" + currentVer;
+                    versionBadge.BackColor = Palette.Border;
+                    versionBadge.ForeColor = Palette.InkSecondary;
+                    if (manual)
+                    {
+                        MessageBox.Show(this, $"当前版本 v{currentVer} 已是最新版本！", "检查更新", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            if (IsDisposed) return;
+            SafeInvoke(() =>
+            {
+                versionBadge.Text = "v" + currentVer;
+                if (manual)
+                {
+                    MessageBox.Show(this, $"检查更新失败: {ex.Message}\n请检查网络连接或稍后重试。", "检查更新", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+            });
+        }
+    }
+
+    void SafeInvoke(Action action)
+    {
+        if (IsDisposed) return;
+        if (InvokeRequired)
+        {
+            try { Invoke(action); } catch (ObjectDisposedException) { }
+        }
+        else
+        {
+            action();
+        }
     }
 }
