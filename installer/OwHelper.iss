@@ -42,7 +42,8 @@ VersionInfoVersion={#AppVersion}
 VersionInfoDescription=OW 助手安装程序
 
 [Languages]
-Name: "chinesesimplified"; MessagesFile: "compiler:Default.isl,compiler:Languages\ChineseSimplified.isl"
+; 中文语言文件 vendoring 进仓库：CI 预装的 Inno 精简包不带官方中文翻译。
+Name: "chinesesimplified"; MessagesFile: "compiler:Default.isl,{#SourcePath}\Languages\ChineseSimplified.isl"
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
