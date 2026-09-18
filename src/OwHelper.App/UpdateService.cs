@@ -47,11 +47,24 @@ public readonly record struct DownloadProgressReport(
     long TotalBytes,
     double Percent);
 
+public sealed record VerifiedUpdatePackage(
+    string FilePath,
+    long SizeBytes,
+    string Sha256,
+    string SourceUrl,
+    bool Verified);
+
 public sealed class UpdateService
 {
     public const string DefaultOwner = "4iKZ";
     public const string DefaultRepo = "ow_helper";
     static readonly Regex Sha256DigestRegex = new(@"^sha256:([0-9a-fA-F]{64})$", RegexOptions.Compiled);
+    static readonly HashSet<string> AllowedHosts = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "github.com",
+        "ghproxy.net",
+        "mirror.ghproxy.com"
+    };
 
     readonly HttpClient httpClient;
     readonly AppLog? log;
@@ -391,7 +404,7 @@ public sealed class UpdateService
         }
     }
 
-    public async Task DownloadUpdateAsync(
+    public async Task<VerifiedUpdatePackage> DownloadAndVerifyUpdateAsync(
         UpdateInfo info,
         string destinationPath,
         IProgress<DownloadProgressReport>? progress = null,
@@ -399,7 +412,28 @@ public sealed class UpdateService
     {
         if (string.IsNullOrWhiteSpace(info.SetupDownloadUrl))
         {
+            log?.Write(new LogEntry(DateTimeOffset.Now, LogLevel.Warning, "UPDATE_INSTALL_ABORTED", Message: $"version={info.Version}, reason=Missing setup download URL"));
             throw new InvalidOperationException("未找到最新安装包下载地址。");
+        }
+
+        if (!Uri.TryCreate(info.SetupDownloadUrl, UriKind.Absolute, out var setupUri) ||
+            setupUri.Scheme != Uri.UriSchemeHttps ||
+            !string.Equals(setupUri.Host, "github.com", StringComparison.OrdinalIgnoreCase))
+        {
+            log?.Write(new LogEntry(DateTimeOffset.Now, LogLevel.Warning, "UPDATE_INSTALL_ABORTED", Message: $"version={info.Version}, reason=Untrusted setup URL host or scheme: {info.SetupDownloadUrl}"));
+            throw new InvalidOperationException("安装包下载地址不受信任，必须来自 https://github.com。");
+        }
+
+        if (string.IsNullOrWhiteSpace(info.SetupSha256) || !Sha256DigestRegex.IsMatch($"sha256:{info.SetupSha256}"))
+        {
+            log?.Write(new LogEntry(DateTimeOffset.Now, LogLevel.Warning, "UPDATE_INSTALL_ABORTED", Message: $"version={info.Version}, reason=Invalid or missing SHA-256 digest: {info.SetupSha256}"));
+            throw new InvalidOperationException("安装包缺少有效的 SHA-256 校验摘要，已停止安装。");
+        }
+
+        if (info.SetupSizeBytes <= 0)
+        {
+            log?.Write(new LogEntry(DateTimeOffset.Now, LogLevel.Warning, "UPDATE_INSTALL_ABORTED", Message: $"version={info.Version}, reason=Invalid expected setup size: {info.SetupSizeBytes}"));
+            throw new InvalidOperationException("安装包大小信息无效，已停止安装。");
         }
 
         string? dir = Path.GetDirectoryName(destinationPath);
@@ -407,7 +441,7 @@ public sealed class UpdateService
 
         string tempPath = destinationPath + ".downloading";
 
-        // 双通道容灾下载源
+        // 三源下载候选（主源 + 双通道容灾）
         var urlsToTry = new List<string>
         {
             info.SetupDownloadUrl,
@@ -419,7 +453,23 @@ public sealed class UpdateService
 
         foreach (string downloadUrl in urlsToTry)
         {
+            if (!Uri.TryCreate(downloadUrl, UriKind.Absolute, out var candidateUri) ||
+                candidateUri.Scheme != Uri.UriSchemeHttps ||
+                !AllowedHosts.Contains(candidateUri.Host))
+            {
+                continue;
+            }
+
+            string sourceHost = candidateUri.Host;
+            TryDeleteFile(tempPath);
             ct.ThrowIfCancellationRequested();
+
+            log?.Write(new LogEntry(
+                DateTimeOffset.Now,
+                LogLevel.Information,
+                "UPDATE_DOWNLOAD_START",
+                Message: $"version={info.Version}, sourceHost={sourceHost}"));
+
             try
             {
                 using var request = new HttpRequestMessage(HttpMethod.Get, downloadUrl);
@@ -446,24 +496,123 @@ public sealed class UpdateService
                     }
                 }
 
-                if (File.Exists(destinationPath)) File.Delete(destinationPath);
+                log?.Write(new LogEntry(
+                    DateTimeOffset.Now,
+                    LogLevel.Information,
+                    "UPDATE_DOWNLOAD_COMPLETE",
+                    Message: $"version={info.Version}, sourceHost={sourceHost}, bytesReceived={bytesReceived}"));
+
+                // 强制验证顺序：
+                // 1. 关闭 FileStream（退出 await using 已完成）
+                // 2. FileInfo.Length == info.SetupSizeBytes
+                var fi = new FileInfo(tempPath);
+                if (!fi.Exists)
+                {
+                    throw new FileNotFoundException("下载临时文件不存在。", tempPath);
+                }
+
+                long actualSize = fi.Length;
+                if (actualSize != info.SetupSizeBytes)
+                {
+                    log?.Write(new LogEntry(
+                        DateTimeOffset.Now,
+                        LogLevel.Warning,
+                        "UPDATE_VERIFY_SIZE_MISMATCH",
+                        Message: $"version={info.Version}, sourceHost={sourceHost}, expectedSize={info.SetupSizeBytes}, actualSize={actualSize}"));
+                    TryDeleteFile(tempPath);
+                    throw new InvalidDataException($"文件大小不匹配: 期望 {info.SetupSizeBytes} 字节，实际 {actualSize} 字节");
+                }
+
+                // 3. 计算 SHA-256
+                string actualSha256;
+                await using (FileStream hashStream = File.OpenRead(tempPath))
+                {
+                    byte[] hashBytes = await System.Security.Cryptography.SHA256.HashDataAsync(hashStream, ct).ConfigureAwait(false);
+                    actualSha256 = Convert.ToHexString(hashBytes).ToLowerInvariant();
+                }
+
+                // 4. 与 SetupSha256 进行 OrdinalIgnoreCase 比较
+                if (!string.Equals(actualSha256, info.SetupSha256, StringComparison.OrdinalIgnoreCase))
+                {
+                    log?.Write(new LogEntry(
+                        DateTimeOffset.Now,
+                        LogLevel.Warning,
+                        "UPDATE_VERIFY_HASH_MISMATCH",
+                        Message: $"version={info.Version}, sourceHost={sourceHost}, expectedSize={info.SetupSizeBytes}, actualSize={actualSize}, expectedSha256={info.SetupSha256}, actualSha256={actualSha256}"));
+                    TryDeleteFile(tempPath);
+                    throw new InvalidDataException($"文件哈希不匹配: 期望 {info.SetupSha256}，实际 {actualSha256}");
+                }
+
+                // 5. hash 完全匹配后才 rename 为 final
+                log?.Write(new LogEntry(
+                    DateTimeOffset.Now,
+                    LogLevel.Information,
+                    "UPDATE_VERIFY_OK",
+                    Message: $"version={info.Version}, sourceHost={sourceHost}, size={actualSize}, sha256={actualSha256}"));
+
+                if (File.Exists(destinationPath))
+                {
+                    File.Delete(destinationPath);
+                }
                 File.Move(tempPath, destinationPath, overwrite: true);
-                return; // 下载成功直接返回
+
+                // 6. 返回 VerifiedUpdatePackage
+                return new VerifiedUpdatePackage(
+                    FilePath: destinationPath,
+                    SizeBytes: actualSize,
+                    Sha256: actualSha256,
+                    SourceUrl: downloadUrl,
+                    Verified: true);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
-                try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { }
+                TryDeleteFile(tempPath);
                 throw;
             }
             catch (Exception ex)
             {
                 lastException = ex;
-                try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { }
-                // 尝试下一个镜像源
+                TryDeleteFile(tempPath);
+                log?.Write(new LogEntry(
+                    DateTimeOffset.Now,
+                    LogLevel.Warning,
+                    "UPDATE_DOWNLOAD_SOURCE_FAILED",
+                    Message: $"version={info.Version}, sourceHost={sourceHost}, reason={ex.Message}"));
             }
         }
 
-        throw new InvalidOperationException($"下载新版本安装包失败: {lastException?.Message}", lastException);
+        string failureReason = lastException?.Message ?? "所有更新下载节点均不可用或验证失败。";
+        log?.Write(new LogEntry(
+            DateTimeOffset.Now,
+            LogLevel.Warning,
+            "UPDATE_INSTALL_ABORTED",
+            Message: $"version={info.Version}, reason={failureReason}"));
+
+        throw new InvalidOperationException($"下载或校验新版本安装包失败: {failureReason}", lastException);
+    }
+
+    public async Task DownloadUpdateAsync(
+        UpdateInfo info,
+        string destinationPath,
+        IProgress<DownloadProgressReport>? progress = null,
+        CancellationToken ct = default)
+    {
+        await DownloadAndVerifyUpdateAsync(info, destinationPath, progress, ct).ConfigureAwait(false);
+    }
+
+    static void TryDeleteFile(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+        catch
+        {
+            // 忽略临时文件清理失败
+        }
     }
 
     public static string CreateRestartScript(string installerPath, string? targetExePath = null)

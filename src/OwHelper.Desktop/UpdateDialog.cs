@@ -309,11 +309,11 @@ public sealed class UpdateDialog : Form
 
         try
         {
-            await controller.UpdateService.DownloadUpdateAsync(info, destPath, progress, cts.Token);
+            VerifiedUpdatePackage package = await controller.UpdateService.DownloadAndVerifyUpdateAsync(info, destPath, progress, cts.Token);
             progressBar.Value = 100;
-            statusLabel.Text = "下载完成！即将退出当前程序并静默升级与重启...";
+            statusLabel.Text = "下载并校验完成！即将退出当前程序并静默升级与重启...";
             await Task.Delay(1000);
-            UpdateService.ExecuteInstallerAndExit(destPath, silent: true);
+            UpdateService.ExecuteInstallerAndExit(package.FilePath, silent: true);
         }
         catch (OperationCanceledException)
         {
