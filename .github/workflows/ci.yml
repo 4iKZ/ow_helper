@@ -24,3 +24,14 @@ jobs:
 
       - name: Test
         run: dotnet test ow_helper.sln -c Release --no-build
+
+      - name: Publish smoke
+        shell: pwsh
+        run: ./scripts/publish.ps1
+
+      - name: Verify artifacts
+        shell: pwsh
+        run: |
+          foreach ($f in 'OwHelper.Desktop.exe', 'OwHelper.exe', 'BgKeyProbe.exe') {
+            if (-not (Test-Path "artifacts/OwHelper-win-x64/$f")) { throw "missing $f" }
+          }

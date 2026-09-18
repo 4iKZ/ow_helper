@@ -11,7 +11,7 @@ internal static class Program
     {
         ApplicationConfiguration.Initialize();
 
-        using var single = new SingleInstance(@"Local\OwHelper.SingleInstance");
+        using var single = new SingleInstance(AppStartup.SingleInstanceName);
         if (!single.Acquired)
         {
             MessageBox.Show("OwHelper 已在运行（托盘或控制台前端）。", "OW Helper", MessageBoxButtons.OK, MessageBoxIcon.Information);

@@ -90,6 +90,26 @@ public class ArchitectureTests
         Assert.DoesNotContain("QuickPresets.Apply", source);
     }
 
+    [Fact]
+    public void SingleInstanceNameLiteral_AppearsOnlyOnce()
+    {
+        const string literal = "OwHelper.SingleInstance";
+        DirectoryInfo root = FindRepoRoot();
+        int hits = 0;
+        foreach (string file in Directory.EnumerateFiles(Path.Combine(root.FullName, "src"), "*.cs", SearchOption.AllDirectories))
+        {
+            string text = File.ReadAllText(file);
+            int index = 0;
+            while ((index = text.IndexOf(literal, index, StringComparison.Ordinal)) >= 0)
+            {
+                hits++;
+                index += literal.Length;
+            }
+        }
+
+        Assert.Equal(1, hits);
+    }
+
     static DirectoryInfo FindRepoRoot()
     {
         DirectoryInfo? current = new DirectoryInfo(AppContext.BaseDirectory);
