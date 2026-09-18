@@ -11,6 +11,8 @@ namespace OwHelper;
 
 public sealed class AppConfig
 {
+    public int SchemaVersion { get; set; } = 2;
+
     public TargetSection Target { get; set; } = new TargetSection();
     public InputSection Input { get; set; } = new InputSection();
     public ResourceSection Resource { get; set; } = new ResourceSection();
@@ -85,7 +87,11 @@ public sealed class AppConfig
         }
         catch (JsonException ex)
         {
-            problems.Add($"config.json 解析失败（原文件保持不动，本次使用默认值）: {ex.Message}");
+            config = TryLoadBackup(path, problems);
+            if (config == null)
+            {
+                problems.Add($"config.json 解析失败（原文件保持不动，本次使用默认值）: {ex.Message}");
+            }
         }
         catch (IOException ex)
         {
@@ -97,11 +103,40 @@ public sealed class AppConfig
         return config;
     }
 
+    static AppConfig? TryLoadBackup(string path, List<string> problems)
+    {
+        string backup = path + ".bak";
+        try
+        {
+            if (!File.Exists(backup)) return null;
+            AppConfig? config = JsonSerializer.Deserialize<AppConfig>(File.ReadAllText(backup), Options);
+            if (config == null) return null;
+            problems.Add("config.json 已损坏，已从备份恢复（下次保存后自动修复主文件）");
+            return config;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     public void Save(string path)
     {
         string? directory = Path.GetDirectoryName(path);
         if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
-        File.WriteAllText(path, JsonSerializer.Serialize(this, Options));
+        string tmp = path + ".tmp";
+        File.WriteAllText(tmp, JsonSerializer.Serialize(this, Options));
+        try
+        {
+            if (File.Exists(path)) File.Copy(path, path + ".bak", overwrite: true);
+            File.Move(tmp, path, overwrite: true);
+        }
+        catch
+        {
+            try { File.Delete(tmp); }
+            catch { }
+            throw;
+        }
     }
 
     public AppConfig Clone()
@@ -136,6 +171,11 @@ public sealed class AppConfig
     public List<string> Validate()
     {
         var problems = new List<string>();
+        if (SchemaVersion != 2)
+        {
+            problems.Add($"config schemaVersion={SchemaVersion} 不是本版本期望的 2，已按当前版本解读");
+            SchemaVersion = 2;
+        }
         if (Input.IntervalSeconds < 5 || Input.IntervalSeconds > 300)
         {
             int clamped = Math.Clamp(Input.IntervalSeconds, 5, 300);
@@ -185,6 +225,12 @@ public sealed class AppConfig
         {
             problems.Add($"resource.priority='{Resource.Priority}' 无法识别，已回退到 BelowNormal");
             Resource.Priority = "BelowNormal";
+        }
+        if (Resource.GpuBackgroundFpsTarget < 20 || Resource.GpuBackgroundFpsTarget > 200)
+        {
+            int clamped = Math.Clamp(Resource.GpuBackgroundFpsTarget, 20, 200);
+            problems.Add($"resource.gpuBackgroundFpsTarget={Resource.GpuBackgroundFpsTarget} 超出 20-200，已调整为 {clamped}");
+            Resource.GpuBackgroundFpsTarget = clamped;
         }
         if (Logging.RetainDays < 1 || Logging.RetainDays > 365)
         {

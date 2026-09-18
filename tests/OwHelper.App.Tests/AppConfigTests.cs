@@ -143,6 +143,80 @@ public class AppConfigTests
     }
 
     [Fact]
+    public void Save_KeepsBackupAndLeavesNoTempFile()
+    {
+        string path = Path.Combine(TempDir(), "config.json");
+        var config = new AppConfig();
+        config.Save(path);
+        config.Input.IntervalSeconds = 45;
+        config.Save(path);
+
+        Assert.False(File.Exists(path + ".tmp"));
+        Assert.True(File.Exists(path + ".bak"));
+        var backup = AppConfig.Load(path + ".bak", out var backupProblems);
+        Assert.Empty(backupProblems);
+        Assert.Equal(30, backup.Input.IntervalSeconds);
+        var main = AppConfig.Load(path, out var mainProblems);
+        Assert.Empty(mainProblems);
+        Assert.Equal(45, main.Input.IntervalSeconds);
+    }
+
+    [Fact]
+    public void Load_CorruptMain_FallsBackToBackup()
+    {
+        string path = Path.Combine(TempDir(), "config.json");
+        var config = new AppConfig();
+        config.Save(path);
+        config.Input.IntervalSeconds = 45;
+        config.Save(path);
+        File.WriteAllText(path, "{ not json");
+
+        var loaded = AppConfig.Load(path, out var problems);
+
+        Assert.Equal(30, loaded.Input.IntervalSeconds);
+        Assert.Contains(problems, p => p.Contains("备份"));
+    }
+
+    [Fact]
+    public void Load_CorruptMainWithoutBackup_UsesDefaults()
+    {
+        string path = WriteConfig("{ not json");
+
+        var loaded = AppConfig.Load(path, out var problems);
+
+        Assert.Equal(30, loaded.Input.IntervalSeconds);
+        Assert.NotEmpty(problems);
+    }
+
+    [Fact]
+    public void Validate_GpuBackgroundFpsTargetOutOfRange_IsClamped()
+    {
+        var config = new AppConfig();
+        config.Resource.GpuBackgroundFpsTarget = 500;
+
+        List<string> problems = config.Validate();
+
+        Assert.Equal(200, config.Resource.GpuBackgroundFpsTarget);
+        Assert.Contains(problems, p => p.Contains("gpuBackgroundFpsTarget"));
+
+        config.Resource.GpuBackgroundFpsTarget = 5;
+        config.Validate();
+        Assert.Equal(20, config.Resource.GpuBackgroundFpsTarget);
+    }
+
+    [Fact]
+    public void SaveLoad_PreservesSchemaVersion()
+    {
+        string path = Path.Combine(TempDir(), "config.json");
+        new AppConfig().Save(path);
+
+        var loaded = AppConfig.Load(path, out var problems);
+
+        Assert.Empty(problems);
+        Assert.Equal(2, loaded.SchemaVersion);
+    }
+
+    [Fact]
     public void GpuGuide_DisabledByPolicyMode()
     {
         var config = new AppConfig();
