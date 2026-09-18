@@ -5,30 +5,47 @@ namespace OwHelper.Desktop;
 
 public sealed class PaperMenuRenderer : ToolStripProfessionalRenderer
 {
-    public PaperMenuRenderer() : base(new PaperColorTable())
+    public PaperMenuRenderer() : base(new ModernColorTable())
     {
-        RoundedEdges = false;
+        RoundedEdges = true;
     }
 
     protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e)
     {
-        e.TextColor = e.Item.Enabled ? Palette.Ink : Palette.InkSecondary;
+        e.TextColor = e.Item.Enabled ? Palette.Ink : Palette.InkMuted;
         base.OnRenderItemText(e);
     }
 
     protected override void OnRenderMenuItemBackground(ToolStripItemRenderEventArgs e)
     {
-        Color color = e.Item.Selected ? Palette.AccentWash : Palette.Panel;
-        using var brush = new SolidBrush(color);
-        e.Graphics.FillRectangle(brush, new Rectangle(Point.Empty, e.Item.Size));
+        if (e.Item.Selected && e.Item.Enabled)
+        {
+            var rect = new Rectangle(4, 1, e.Item.Width - 8, e.Item.Height - 2);
+            using var brush = new SolidBrush(Palette.AccentLight);
+            using var pen = new Pen(Palette.AccentWash);
+            e.Graphics.FillRectangle(brush, rect);
+            e.Graphics.DrawRectangle(pen, rect);
+        }
+        else
+        {
+            using var brush = new SolidBrush(Palette.Panel);
+            e.Graphics.FillRectangle(brush, new Rectangle(Point.Empty, e.Item.Size));
+        }
     }
 
-    sealed class PaperColorTable : ProfessionalColorTable
+    protected override void OnRenderSeparator(ToolStripSeparatorRenderEventArgs e)
     {
-        public override Color MenuItemSelected => Palette.AccentWash;
-        public override Color MenuItemSelectedGradientBegin => Palette.AccentWash;
-        public override Color MenuItemSelectedGradientEnd => Palette.AccentWash;
-        public override Color MenuItemBorder => Palette.Accent;
+        int y = e.Item.Height / 2;
+        using var pen = new Pen(Palette.Border);
+        e.Graphics.DrawLine(pen, 12, y, e.Item.Width - 12, y);
+    }
+
+    sealed class ModernColorTable : ProfessionalColorTable
+    {
+        public override Color MenuItemSelected => Palette.AccentLight;
+        public override Color MenuItemSelectedGradientBegin => Palette.AccentLight;
+        public override Color MenuItemSelectedGradientEnd => Palette.AccentLight;
+        public override Color MenuItemBorder => Palette.AccentWash;
         public override Color MenuBorder => Palette.Border;
         public override Color ToolStripDropDownBackground => Palette.Panel;
         public override Color ImageMarginGradientBegin => Palette.Panel;

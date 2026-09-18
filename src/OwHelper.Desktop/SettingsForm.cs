@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -47,20 +48,24 @@ public sealed class SettingsForm : Form
     readonly CheckedListBox keyList = new CheckedListBox
     {
         MultiColumn = true,
-        ColumnWidth = 190,
-        Height = 120,
+        ColumnWidth = 165,
+        Height = 160,
+        IntegralHeight = false,
         CheckOnClick = true,
-        BackColor = Palette.Panel,
+        BackColor = Palette.SurfaceSubtle,
         ForeColor = Palette.Ink,
         BorderStyle = BorderStyle.FixedSingle,
-        Width = 540,
+        Dock = DockStyle.Top,
+        Margin = new Padding(0, 0, 0, 8),
     };
     readonly TextBox customKeys = new TextBox
     {
-        Width = 540,
-        BackColor = Palette.Panel,
+        Dock = DockStyle.Top,
+        Height = 28,
+        BackColor = Palette.SurfaceSubtle,
         ForeColor = Palette.Ink,
         BorderStyle = BorderStyle.FixedSingle,
+        Margin = new Padding(0, 2, 0, 0),
     };
     readonly NumericUpDown interval = Numeric(5, 300);
     readonly NumericUpDown hold = Numeric(10, 2000);
@@ -96,60 +101,70 @@ public sealed class SettingsForm : Form
         BackColor = Palette.Paper;
         ForeColor = Palette.Ink;
         Font = new Font("Segoe UI", 9f);
-        ClientSize = new Size(584, 656);
+        ClientSize = new Size(620, 720);
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         MinimizeBox = false;
         ShowInTaskbar = false;
         StartPosition = FormStartPosition.CenterScreen;
+        try
+        {
+            string? exe = System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName;
+            if (!string.IsNullOrEmpty(exe)) Icon = Icon.ExtractAssociatedIcon(exe) ?? Icon;
+        }
+        catch { }
 
         Populate(keyList);
 
-        var layout = new TableLayoutPanel
+        var root = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            Padding = new Padding(20, 16, 20, 8),
+            Padding = new Padding(18, 14, 18, 10),
             ColumnCount = 1,
+            RowCount = 5,
             AutoScroll = true,
+            BackColor = Palette.Paper,
         };
-        AddSection(layout, "自动按哪些键（可多选）");
-        AddRow(layout, keyList);
-        AddRow(layout, Field("也可以自己填（英文逗号隔开，例如 mouseleft、f1、up）", customKeys));
-        AddSection(layout, "按键节奏");
-        AddRow(layout, Pair("每隔多少秒按一次", interval));
-        AddRow(layout, Pair("每次按住多久（毫秒）", hold));
-        AddRow(layout, Pair("准备等待（毫秒，一般不用改）", focusWait));
-        AddRow(layout, Pair("间隔随机浮动（%，一般不用改）", jitter));
-        AddSection(layout, "后台运行方式");
-        AddRow(layout, Pair("后台优先级别", priority));
-        AddRow(layout, ecoQos);
-        AddSection(layout, "其他");
-        AddRow(layout, skipForeground);
-        AddRow(layout, allowOffscreen);
-        AddRow(layout, keepOffscreen);
-        AddSection(layout, "运行记录");
-        AddRow(layout, Pair("记录详细程度", logLevel));
-        AddRow(layout, Pair("保留天数", retainDays));
-        AddRow(layout, new Label
-        {
-            Text = "保存后立即生效；正在挂机时，下一次自动按键就会用新设置。",
-            ForeColor = Palette.InkSecondary,
-            AutoSize = true,
-            Margin = new Padding(0, 6, 0, 0),
-        });
+        for (int i = 0; i < 5; i++) root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
-        var save = ActionButton("保存");
+        // 卡片 1：按键设定
+        root.Controls.Add(BuildKeyCard(), 0, 0);
+
+        // 卡片 2：节奏设定
+        root.Controls.Add(BuildRhythmCard(), 0, 1);
+
+        // 卡片 3：后台与行为
+        root.Controls.Add(BuildBehaviorCard(), 0, 2);
+
+        // 卡片 4：运行记录
+        root.Controls.Add(BuildLoggingCard(), 0, 3);
+
+        // 底部提示
+        root.Controls.Add(new Label
+        {
+            Text = "✓ 设置保存后立即生效；正在挂机时，下一次自动按键就会采用新设置。",
+            ForeColor = Palette.InkSecondary,
+            Font = new Font("Segoe UI", 8.5f),
+            AutoSize = true,
+            Margin = new Padding(4, 4, 0, 8),
+        }, 0, 4);
+
+        // 底部按钮栏
+        var save = ActionButton("保存并生效", primary: true);
         save.Click += async (s, e) => await SaveAsync();
-        var cancel = ActionButton("取消");
+
+        var cancel = ActionButton("取消", primary: false);
         cancel.Click += (s, e) => { DialogResult = DialogResult.Cancel; Close(); };
-        var restore = ActionButton("恢复推荐设置");
+
+        var restore = ActionButton("恢复推荐设置", primary: false);
         restore.Click += (s, e) => LoadFromConfig(QuickPresets.ToConfig(QuickPresets.TorbjornPass));
         new ToolTip().SetToolTip(restore, QuickPresets.TorbjornPass.Title + "：" + QuickPresets.TorbjornPass.Subtitle);
+
         var buttons = new FlowLayoutPanel
         {
             Dock = DockStyle.Bottom,
             FlowDirection = FlowDirection.LeftToRight,
-            Padding = new Padding(20, 0, 20, 14),
+            Padding = new Padding(18, 8, 18, 14),
             Height = 56,
             BackColor = Palette.Paper,
         };
@@ -157,12 +172,113 @@ public sealed class SettingsForm : Form
         buttons.Controls.Add(cancel);
         buttons.Controls.Add(restore);
 
-        Controls.Add(layout);
+        Controls.Add(root);
         Controls.Add(buttons);
         AcceptButton = save;
         CancelButton = cancel;
 
         LoadFromConfig(config);
+    }
+
+    Control BuildKeyCard()
+    {
+        var content = new TableLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            ColumnCount = 1,
+            RowCount = 3,
+            BackColor = Palette.Panel,
+            Margin = new Padding(0),
+            Padding = new Padding(0),
+        };
+        content.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        content.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        content.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+        content.Controls.Add(keyList, 0, 0);
+
+        var customLabel = new Label
+        {
+            Text = "自定义按键（英文逗号隔开，例如 mouseleft、f1、up）：",
+            ForeColor = Palette.InkSecondary,
+            Font = new Font("Segoe UI", 8.5f),
+            AutoSize = true,
+            Margin = new Padding(0, 4, 0, 4),
+        };
+        content.Controls.Add(customLabel, 0, 1);
+        content.Controls.Add(customKeys, 0, 2);
+
+        return CreateGroupCard("自动按哪些键（可多选）", content);
+    }
+
+    Control BuildRhythmCard()
+    {
+        var content = new TableLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            ColumnCount = 1,
+            RowCount = 4,
+            BackColor = Palette.Panel,
+            Margin = new Padding(0),
+            Padding = new Padding(0),
+        };
+        for (int i = 0; i < 4; i++) content.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+        content.Controls.Add(Pair("每隔多少秒按一次", interval), 0, 0);
+        content.Controls.Add(Pair("每次按住多久（毫秒）", hold), 0, 1);
+        content.Controls.Add(Pair("准备等待（毫秒，一般不用改）", focusWait), 0, 2);
+        content.Controls.Add(Pair("间隔随机浮动（%，一般不用改）", jitter), 0, 3);
+
+        return CreateGroupCard("按键节奏与延时", content);
+    }
+
+    Control BuildBehaviorCard()
+    {
+        var content = new TableLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            ColumnCount = 1,
+            RowCount = 5,
+            BackColor = Palette.Panel,
+            Margin = new Padding(0),
+            Padding = new Padding(0),
+        };
+        for (int i = 0; i < 5; i++) content.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+        content.Controls.Add(Pair("后台优先级别", priority), 0, 0);
+        content.Controls.Add(ecoQos, 0, 1);
+        content.Controls.Add(skipForeground, 0, 2);
+        content.Controls.Add(allowOffscreen, 0, 3);
+        content.Controls.Add(keepOffscreen, 0, 4);
+
+        return CreateGroupCard("后台运行与行为模式", content);
+    }
+
+    Control BuildLoggingCard()
+    {
+        var content = new TableLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            ColumnCount = 1,
+            RowCount = 2,
+            BackColor = Palette.Panel,
+            Margin = new Padding(0),
+            Padding = new Padding(0),
+        };
+        for (int i = 0; i < 2; i++) content.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+        content.Controls.Add(Pair("记录详细程度", logLevel), 0, 0);
+        content.Controls.Add(Pair("日志保留天数", retainDays), 0, 1);
+
+        return CreateGroupCard("运行记录与日志", content);
     }
 
     void LoadFromConfig(AppConfig source)
@@ -225,6 +341,57 @@ public sealed class SettingsForm : Form
         Close();
     }
 
+    static Panel CreateGroupCard(string title, Control content)
+    {
+        var card = new Panel
+        {
+            Dock = DockStyle.Top,
+            BackColor = Palette.Panel,
+            Padding = new Padding(16, 12, 16, 14),
+            Margin = new Padding(0, 0, 0, 12),
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+        };
+        card.Paint += (s, e) =>
+        {
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            using var pen = new Pen(Palette.Border);
+            DrawRoundedRectangle(e.Graphics, pen, new Rectangle(0, 0, card.Width - 1, card.Height - 1), 6);
+        };
+
+        var layout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            ColumnCount = 1,
+            RowCount = 2,
+            BackColor = Palette.Panel,
+            Margin = new Padding(0),
+            Padding = new Padding(0),
+        };
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+        var titleLabel = new Label
+        {
+            Text = title,
+            Font = new Font("Segoe UI Semibold", 10f),
+            ForeColor = Palette.Accent,
+            AutoSize = true,
+            Margin = new Padding(0, 0, 0, 10),
+        };
+
+        content.Dock = DockStyle.Top;
+        content.Margin = new Padding(0);
+
+        layout.Controls.Add(titleLabel, 0, 0);
+        layout.Controls.Add(content, 0, 1);
+
+        card.Controls.Add(layout);
+        return card;
+    }
+
     static decimal Clamp(int value, NumericUpDown control)
         => Math.Max(control.Minimum, Math.Min(control.Maximum, value));
 
@@ -232,8 +399,9 @@ public sealed class SettingsForm : Form
     {
         Minimum = min,
         Maximum = max,
-        Width = 110,
-        BackColor = Palette.Panel,
+        Width = 120,
+        Height = 28,
+        BackColor = Palette.SurfaceSubtle,
         ForeColor = Palette.Ink,
         BorderStyle = BorderStyle.FixedSingle,
     };
@@ -261,8 +429,8 @@ public sealed class SettingsForm : Form
         var combo = new ComboBox
         {
             DropDownStyle = ComboBoxStyle.DropDownList,
-            Width = 160,
-            BackColor = Palette.Panel,
+            Width = 180,
+            BackColor = Palette.SurfaceSubtle,
             ForeColor = Palette.Ink,
         };
         combo.Items.AddRange(items);
@@ -273,81 +441,93 @@ public sealed class SettingsForm : Form
     {
         Text = text,
         ForeColor = Palette.Ink,
+        Font = new Font("Segoe UI", 9f),
         AutoSize = true,
+        Dock = DockStyle.Top,
         Margin = new Padding(0, 4, 0, 4),
     };
 
-    static Button ActionButton(string text) => new Button
+    static Button ActionButton(string text, bool primary) => new Button
     {
         Text = text,
-        Width = 108,
-        Height = 30,
+        AutoSize = true,
+        AutoSizeMode = AutoSizeMode.GrowAndShrink,
+        MinimumSize = new Size(110, 36),
+        Padding = new Padding(16, 0, 16, 0),
         FlatStyle = FlatStyle.Flat,
-        BackColor = Palette.Panel,
-        ForeColor = Palette.Ink,
+        BackColor = primary ? Palette.Accent : Palette.Panel,
+        ForeColor = primary ? Color.White : Palette.Ink,
+        Font = new Font("Segoe UI Semibold", 9f),
         Margin = new Padding(0, 0, 10, 0),
+        Cursor = Cursors.Hand,
         FlatAppearance =
         {
+            BorderSize = primary ? 0 : 1,
             BorderColor = Palette.Border,
-            MouseOverBackColor = Palette.AccentWash,
-            MouseDownBackColor = Palette.AccentWash,
+            MouseOverBackColor = primary ? Palette.AccentHover : Palette.SurfaceSubtle,
+            MouseDownBackColor = primary ? Palette.AccentHover : Palette.AccentWash,
         },
     };
 
-    static void AddSection(TableLayoutPanel layout, string text)
+    static TableLayoutPanel Pair(string caption, Control control)
     {
-        layout.Controls.Add(new Label
+        var row = new TableLayoutPanel
         {
-            Text = text,
-            Font = new Font("Segoe UI Semibold", 10f),
-            ForeColor = Palette.Accent,
+            Dock = DockStyle.Top,
             AutoSize = true,
-            Margin = new Padding(0, 10, 0, 4),
-        });
-    }
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            ColumnCount = 2,
+            RowCount = 1,
+            Margin = new Padding(0, 3, 0, 3),
+            Padding = new Padding(0),
+            BackColor = Palette.Panel,
+        };
+        row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55f));
+        row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45f));
+        row.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
-    static void AddRow(TableLayoutPanel layout, Control control)
-    {
-        control.Margin = new Padding(0, 2, 0, 2);
-        layout.Controls.Add(control);
-    }
-
-    static Panel Field(string caption, Control control)
-    {
-        var panel = new Panel { Width = 544, Height = 28 };
         var label = new Label
         {
             Text = caption,
             ForeColor = Palette.InkSecondary,
+            Font = new Font("Segoe UI", 9f),
             AutoSize = true,
-            Location = new Point(0, 5),
+            Dock = DockStyle.Fill,
+            TextAlign = ContentAlignment.MiddleLeft,
+            Margin = new Padding(0, 4, 8, 4),
         };
-        control.Location = new Point(0, 24);
-        panel.Controls.Add(label);
-        control.Dock = DockStyle.Bottom;
-        panel.Controls.Add(control);
-        panel.Height = 52;
-        return panel;
+
+        control.Dock = DockStyle.Left;
+        control.Margin = new Padding(0, 3, 0, 3);
+
+        row.Controls.Add(label, 0, 0);
+        row.Controls.Add(control, 1, 0);
+        return row;
     }
 
-    static Panel Pair(string caption, Control control)
+    static void DrawRoundedRectangle(Graphics g, Pen pen, Rectangle bounds, int radius)
     {
-        var panel = new Panel { Width = 544, Height = 30 };
-        var label = new Label
+        int diameter = radius * 2;
+        var size = new Size(diameter, diameter);
+        var arc = new Rectangle(bounds.Location, size);
+        using var path = new GraphicsPath();
+
+        if (radius == 0)
         {
-            Text = caption,
-            ForeColor = Palette.InkSecondary,
-            AutoSize = true,
-            Location = new Point(0, 6),
-            Width = 190,
-        };
-        control.Location = new Point(200, 2);
-        panel.Controls.Add(label);
-        panel.Controls.Add(control);
-        return panel;
+            path.AddRectangle(bounds);
+        }
+        else
+        {
+            path.AddArc(arc, 180, 90);
+            arc.X = bounds.Right - diameter;
+            path.AddArc(arc, 270, 90);
+            arc.Y = bounds.Bottom - diameter;
+            path.AddArc(arc, 0, 90);
+            arc.X = bounds.Left;
+            path.AddArc(arc, 90, 90);
+            path.CloseFigure();
+        }
+
+        g.DrawPath(pen, path);
     }
 }
-
-
-
-
